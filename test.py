@@ -26,29 +26,7 @@ Q_mgs = 5  # Mass flow rate in mg/s
 # Model input is a normalized current
 I_bar = 1.34
 
-def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
-
-    if thruster == 'PPSX00':
-        L_ch = 0.024  # channel length in meters
-        d_ave = 0.056  # Thruster average diameter
-        Delta_r = 0.015  # channel gap
-    elif thruster == 'PPS1350':
-        L_ch = 0.029  # channel length in meters
-        d_ave = 0.0845  # Thruster average diameter
-        Delta_r = 0.0155  # channel gap
-    elif thruster == 'PPS5000':
-        L_ch = 0.033  # channel length in meters
-        d_ave = 0.1275  # Thruster average diameter
-        Delta_r = 0.0225  # channel gap
-    elif thruster == 'PPSX000_Hi':
-        L_ch = 0.032  # channel length in meters
-        d_ave = 0.1365  # Thruster average diameter
-        Delta_r = 0.0135  # channel gap
-    elif thruster == 'PPS20k':
-        L_ch = 0.071  # channel length in meters
-        d_ave = 0.2700  # Thruster average diameter
-        Delta_r = 0.05  # channel gap
-
+def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
     if propellant == 'xenon':
         M = 131 * 1.67e-27
         v_g = np.sqrt(k_B * T_g / M)
@@ -58,7 +36,6 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
         E_exc = 11.6
         kel = 2.5e-13
         delta_anom = 3.3e-3  # anomalous transport
-
     elif propellant == 'krypton':
         M = 83.8 * 1.67e-27
         v_g = np.sqrt(k_B * T_g / M)
@@ -96,6 +73,7 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
     g_0 = 0.1 * chi_0  # initial velocity is then v_star/10
 
     def RHS_Trevor_HET(x, y):
+        global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
 
         dy = np.zeros(2)
 
@@ -177,4 +155,4 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
     Te_max, i_Temax = np.max(T_e), np.argmax(T_e)
     x_Temax = x[i_Temax]
 
-    return ([I_sp, thrust_mN])
+    return (thrust_to_power_mN_kW)

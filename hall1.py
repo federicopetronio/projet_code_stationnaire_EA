@@ -6,6 +6,10 @@ from scipy.optimize import minimize_scalar
 # 1D model of a Hall thruster in xenon and krypton
 # Trevor Lafleur and Pascal Chabert, June 2024
 
+#measures the time it takes to run the code
+import time as ti
+start_time = ti.time()
+
 global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
 
 
@@ -92,27 +96,28 @@ Gamma_m = Q_m / (M * A_ch)
 chi_0 = 5e-3
 g_0 = 0.1 * chi_0  # initial velocity is then v_star/10
 
-def RHS_Trevor_HET(x, y):
-    global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar #gamma_bar = f_epsilon; B_bar = Lambda; A_bar = alpha; alpha_bar = beta; beta_bar = gamma
+def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is the vector of the unknowns
+    global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
 
-    # K_iz = (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te))
-    # B: compris entre 0.005 et 0.05 Gauss
     dy = np.zeros(2)
 
-    chi, g = y #GAMMA, G
+    chi, g = y
 
-    f = np.exp(-beta_mag * (x - 1)**2)
-    beta_bar = beta * f
-    alpha_bar = alpha * f**2
+    f = np.exp(-beta_mag * (x - 1)**2) #(45) f effectively represents the normalized radial magnetic field profile with Bmax
+    beta_bar = beta * f  
+    alpha_bar = alpha * f**2 
 
     Te = np.linspace(0.5, 25, 2500)
     sigma = np.minimum(sigma_scl, (1/25) * Te)
+    print(sigma)
     E_w = 2 * Te + Te * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
     term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi)
     term2 = (1 - chi)**2 * g**2 * alpha_bar / (chi**4 * (1 - I_bar * chi) * (1 + beta_bar - I_bar * chi))
     
     i_min = np.argmin(np.abs(term2 - term1))
     T_e = Te[i_min]
+    
+    print(T_e)
 
     OMEGA = A_bar * (3 * T_e / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * T_e))
 
@@ -121,9 +126,13 @@ def RHS_Trevor_HET(x, y):
 
     return dy
 
+
 sol = solve_ivp(RHS_Trevor_HET, [0, 1], [chi_0, g_0], method='RK45', rtol=1e-5, atol=[1e-5, 1e-5])
 x = sol.t
 Y = sol.y
+print('x:', x)
+print('Y:', Y)
+
 N0 = len(x)
 chi = Y[0, :]
 g = Y[1, :]
@@ -180,8 +189,11 @@ x_Temax = x[i_Temax]
 print("Thrust: "+ str(thrust_mN)+ " mN")
 print("ISP: "+ str(I_sp)+ " s")
 print("Thrust to power ratio: "+ str(thrust_to_power_mN_kW)+ " mN/kW")
+print("Time: "+ str(ti.time() - start_time) + " s")
+
+
 # Plotting
-"""
+
 plt.figure(1)
 plt.plot(x, n_i, 'k', linewidth=1)
 plt.twinx()
@@ -191,7 +203,8 @@ plt.xlabel('$x$ (m)', fontsize=14)
 plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
 plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('densities.pdf')
+#
+# #plt.savefig('densities.pdf')
 
 plt.figure(2)
 plt.plot(x, T_e, 'b', linewidth=1)
@@ -200,14 +213,14 @@ plt.ylim([0, 25])
 plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
 plt.ylabel('$T_e$ (V)', fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('Te.pdf')
+#plt.savefig('Te.pdf')
 
 plt.figure(3)
 plt.plot(x, u_i, 'b', linewidth=1)
 plt.xlim([0, 1])
 plt.ylabel('$u_i$ (m/s)', fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('ion-velocity.pdf')
+#plt.savefig('ion-velocity.pdf')
 
 plt.figure(4)
 plt.plot(x, E_x, 'k', linewidth=1)
@@ -218,7 +231,7 @@ plt.xlabel('$x$(m)', fontsize=14)
 plt.ylabel('$E_x$ (V/m)', fontsize=14)
 plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('ExSiz.pdf')
+#plt.savefig('ExSiz.pdf')
 
 plt.figure(6)
 plt.plot(x, BB * 1e4, 'b', linewidth=1)
@@ -226,7 +239,7 @@ plt.xlim([0, 1])
 plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
 plt.ylabel('$B$ (Gauss)', fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('Bfield.pdf')
+#plt.savefig('Bfield.pdf')
 
 plt.figure(8)
 plt.plot(x, n_g * v_g, 'b', label='Neutrals')
@@ -236,6 +249,5 @@ plt.xlabel('$x$(m)', fontsize=14)
 plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
 plt.legend(fontsize=14)
 plt.gca().tick_params(labelsize=14)
-plt.savefig('Fluxes.pdf')
-"""
-
+plt.show()
+#plt.savefig('Fluxes.pdf')

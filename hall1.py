@@ -109,7 +109,6 @@ def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is
 
     Te = np.linspace(0.5, 25, 2500)
     sigma = np.minimum(sigma_scl, (1/25) * Te)
-    print(sigma)
     E_w = 2 * Te + Te * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
     term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi)
     term2 = (1 - chi)**2 * g**2 * alpha_bar / (chi**4 * (1 - I_bar * chi) * (1 + beta_bar - I_bar * chi))
@@ -117,8 +116,6 @@ def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is
     i_min = np.argmin(np.abs(term2 - term1))
     T_e = Te[i_min]
     
-    print(T_e)
-
     OMEGA = A_bar * (3 * T_e / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * T_e))
 
     dy[0] = OMEGA * chi**2 * (1 - I_bar * chi) / g
@@ -130,8 +127,16 @@ def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is
 sol = solve_ivp(RHS_Trevor_HET, [0, 1], [chi_0, g_0], method='RK45', rtol=1e-5, atol=[1e-5, 1e-5])
 x = sol.t
 Y = sol.y
-print('x:', x)
-print('Y:', Y)
+
+
+# plt.figure(1)
+# plt.plot(x, Y[0, :], 'b', linewidth=1)
+# plt.plot(x, Y[1, :], 'r', linewidth=1)
+# plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+# plt.ylabel('$\\Gamma$, $G$', fontsize=14)
+# plt.legend(['$\\Gamma$', '$G$'], fontsize=14)
+# plt.gca().tick_params(labelsize=14)
+# plt.show()
 
 N0 = len(x)
 chi = Y[0, :]
@@ -139,6 +144,8 @@ g = Y[1, :]
 u_i = (g / chi) * v_star
 n_i = chi * Gamma_d / u_i
 n_g = (Gamma_m - chi * Gamma_d) / v_g
+
+print("x: "+ str(x))
 f = np.exp(-beta_mag * (x - 1)**2)
 beta_bar = beta * f
 intB2 = np.trapz(f**2, x)
@@ -150,6 +157,24 @@ mu_eff = e * nu_eff / (m_e * omega_ce**2)
 E_x = Gamma_d * (1 - chi) / (n_i * mu_eff)
 V_d = E_c * np.trapz(alpha_bar * g * (1 - chi) / (chi**2 * (1 + beta_bar - I_bar * chi)), x)
 Power = V_d * I_d
+
+#print toutes les valeurs
+print("g: "+ str(g))
+print("u_i: "+ str(u_i))
+print("n_i: "+ str(n_i))
+print("n_g: "+ str(n_g))
+print("f: "+ str(f))
+print("beta_bar: "+ str(beta_bar))
+print("intB2: "+ str(intB2))
+print("BB: "+ str(BB))
+print("omega_ce: "+ str(omega_ce))
+print("alpha_bar: "+ str(alpha_bar))
+print("nu_eff: "+ str(nu_eff))
+print("mu_eff: "+ str(mu_eff))
+print("E_x: "+ str(E_x))
+print("V_d: "+ str(V_d))
+print("Power: "+ str(Power))
+
 
 T_e = np.zeros(N0)
 E_w = np.zeros(N0)

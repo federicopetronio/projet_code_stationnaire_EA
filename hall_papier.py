@@ -8,6 +8,7 @@ from scipy.optimize import minimize_scalar
 
 #measures the time it takes to run the code
 import time as ti
+
 start_time = ti.time()
 
 global sigma_scl, C_mag, M, f_epsilon, E_iz, m_e, alpha, lmbd, beta, gamma, I_bar
@@ -100,29 +101,27 @@ Gamma_m = Q_m / (M * A_ch) #(15) in the text
 # integration starts here
 Gamma_0_bar = 0.005 
 #Gamma_0 = Gamma_0_bar * Gamma_d
-G_0_bar = Gamma_0_bar * np.sqrt((k_B * T_g)/(e * E_iz))  
+#G_0_bar = Gamma_0_bar * np.sqrt((k_B * T_g)/(e * E_iz))  
+G_0_bar = 0.1 * Gamma_0_bar
 #G_0 = (v_star * Gamma_d) * G_0_bar
 
-####### TESTTTTT
 #Km = 2.6e-13
 #f_m = Km/Km_star #(31)
 f_m = 1 # Pour l'instant on prend f_m = 1
 
-def F_Te(Te, z, G_bar, Gamma_bar):
+def F_Te(Te, z_bar, G_bar, Gamma_bar):
     global f_ce, sigma, M_bar
     
     Te_bar = Te/E_iz #(28)
     K_iz = K_iz_star * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))
-    z_bar = z/L_ch #(21) just above
+    # z_bar = z/L_ch #(21) just above
     f_ce = np.exp(-C_mag * (z_bar - 1)**2) #(45)
 
     f_iz = K_iz/K_iz_star #(30)
-    sigma_see = 0.207 * Te**0.549 #(12)
+    #sigma_see = 0.207 * Te**0.549 #(12)
+    sigma_see = 1/25 * Te
     sigma = np.minimum(sigma_scl, sigma_see) #(14) 
     M_bar = M/m_e #(33)
-
-    #Gamma_bar = Gamma/Gamma_d #(17) in the text below
-    #G_bar = G/(v_star * Gamma_d) #(22) in the text just above
 
     #(32) the unknown is Te
     numerateur = beta * f_ce**2 * G_bar**2 * (1 - Gamma_bar)**2
@@ -132,54 +131,47 @@ def F_Te(Te, z, G_bar, Gamma_bar):
     
     return numerateur/denominateur - term1 - term2
 
-#plots the function F_Te to find the root
-# Te = np.linspace(0 * E_iz, 3 * E_iz, 2500)    
-# z = 1
-# F = np.zeros(2500)
-# for i in range(2500):
-#     F[i] = F_Te(Te[i], z, G_0_bar, Gamma_0_bar)
-    
-# plt.plot(Te/E_iz, F)
-# plt.xlabel('Te_Bar')
-# plt.ylabel('F_Te')
-# plt.show()
 
-Te_bar_global = None
+def find_sign_change(f, a, b, steps=100):
+    x_values = [a + j * (b - a) / steps for j in range(steps + 1)]
+    for k in range(len(x_values) - 1):
+        if f(x_values[k]) * f(x_values[k + 1]) < 0:
+            return x_values[k], x_values[k + 1]
+    raise ValueError("Pas de changement de signe trouvé dans l'intervalle donné")
+
+def secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0, Te_1):
+    F_Te_0 = F_Te(Te_0, z_bar, G_bar, Gamma_bar)
+    F_Te_1 = F_Te(Te_1, z_bar, G_bar, Gamma_bar)
+        
+    while np.abs(F_Te_0) > 1e-3:
+        Te_2 = Te_1 - F_Te_1 * (Te_1 - Te_0) / (F_Te_1 - F_Te_0)        
+        Te_0, Te_1 = Te_1, Te_2
+        F_Te_0, F_Te_1 = F_Te_1, F_Te(Te_2, z_bar, G_bar, Gamma_bar)
+    
+    Te_bar = Te_1/E_iz #(28)
+    
+    return Te_bar  # Return the final approximation after max iterations
+
+z_bar_array = []
+T_bar_array = []
 
 def RHS_Anna_HET(z_bar, y): #z corresponds to the distance along the channel, y is the vector of the unknowns
-    global Te_bar_global, K_iz, f_iz
+    global K_iz, f_iz
     
     dy = np.zeros(2)
     Gamma_bar, G_bar = y #we calculate Te thanks to an initialisation value of G and Gamma
 
-    z = z_bar * L_ch #(21) just above
+    # z = z_bar * L_ch #(21) just above
     
     ######## Secant method to find the root of F_Te
-    #Initial guess
-    Te_0 = 0.5 * E_iz
-    Te_1 = Te_0 + 0.1 * E_iz
+    # Initial guess
+    [Te_0, Te_1] = find_sign_change(lambda Te: F_Te(Te, z_bar, G_bar, Gamma_bar), 0.5, 30)
+    Te_bar = secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0, Te_1)
+    z_bar_array.append(z_bar)
+    T_bar_array.append(Te_bar)
     
-    F_Te_0 = F_Te(Te_0, z, G_bar, Gamma_bar)
-    F_Te_1 = F_Te(Te_1, z, G_bar, Gamma_bar)
-        
-    while np.abs(F_Te_0) > 1e-5:
-        Te_2 = Te_1 - F_Te_1 * (Te_1 - Te_0) / (F_Te_1 - F_Te_0)        
-        Te_0, Te_1 = Te_1, Te_2
-        F_Te_0, F_Te_1 = F_Te_1, F_Te(Te_2, z, G_bar, Gamma_bar)
     
-    # Te = np.linspace(0.5, 25, 2500)
-    
-    # i_min = np.argmin(np.abs(F_Te(Te, z, G_bar, Gamma_bar)))
-    # Te_0 = Te[i_min]
-
-    
-    Te_0_bar = Te_0/E_iz #(28)
-    Te_bar_global = Te_0_bar
-    
-    #Gamma_bar = Gamma/Gamma_d #(17) in the text below
-    #G_bar = G/(v_star * Gamma_d) #(22) in the text just above
-    
-    K_iz = K_iz_star * ((3/2 * Te_0_bar)**0.25) * np.exp(-4/(3 * Te_0_bar))    
+    K_iz = K_iz_star * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))    
     f_iz = K_iz/K_iz_star
     f_ce = np.exp(-C_mag * (z_bar - 1)**2) #(45)
         
@@ -189,12 +181,15 @@ def RHS_Anna_HET(z_bar, y): #z corresponds to the distance along the channel, y 
     #- lmbd * Gamma_bar * np.sqrt(Te_0_bar) #(22) dG_bar/dz_bar
     
     return dy
-t_eval = np.linspace(0, 1, 20)
-sol = solve_ivp(RHS_Anna_HET, [0, 1], [Gamma_0_bar, G_0_bar], method='RK45', rtol=1e-5, atol=[1e-5, 1e-5], t_eval=t_eval) #solution of the system of ODEs with initial conditions Gamma_0 and G_0
+
+#z_eval = np.linspace(0, 1, 1000)
+sol = solve_ivp(RHS_Anna_HET, [0, 1], [Gamma_0_bar, G_0_bar], method='RK45', rtol=1e-7, atol=[1e-7, 1e-7]) #solution of the system of ODEs with initial conditions Gamma_0 and G_0
 z_bar, Y = sol.t, sol.y #z is the vector of the distances along the channel, Y is the matrix of the unknowns
 
-print("z: "+ str(z_bar))
-print("Y: "+ str(Y))
+z_bar_array = np.array(z_bar_array)
+T_bar_array = np.array(T_bar_array)*E_iz
+
+
 
 
 #plot the solution
@@ -210,11 +205,11 @@ print("Y: "+ str(Y))
 N0 = len(z_bar) #number of points in the solution
 Gamma_bar, G_bar = Y[0, :], Y[1, :] #Gamma and G are the vectors of the unknowns
 u_i = v_star * G_bar/Gamma_bar #ion velocity ######################################(also look at 19 under)
-n_i = Gamma_bar * Gamma_d / u_i #ion density
+n_i = Gamma_bar * Gamma_d / u_i #(15) in text under, ion density
 n_g = (Gamma_m - Gamma_bar * Gamma_d) / v_g #(15) neutral density
 
 
-z = z_bar/L_ch #(21) just above
+# z = z_bar/L_ch #(21) just above
 print ("z_bar: "+ str(z_bar))
 
 f_ce = np.exp(-C_mag * (z_bar - 1)**2) #radial magnetic field profile
@@ -230,34 +225,19 @@ nu_eff = Km_star * n_g + delta_anom * omega_ce # (6) effective collision frequen
 mu_eff = e * nu_eff / (m_e * omega_ce**2) # (16) effective mobility
 Ez = Gamma_d * (1 - Gamma_bar) / (n_i * mu_eff) # (17) electric field
 
-#V_d = E_c * np.trapz(alpha_bar * G_bar * (1 - Gamma_bar) / (Gamma_bar**2 * (1 + gamma * f_ce - I_bar * Gamma_bar)), z) #voltage drop
 Phi_d_bar = np.trapz((beta * f_ce**2 * G_bar*(1-Gamma_bar))/(Gamma_bar**2*(f_m*(1-I_bar*Gamma_bar) + gamma*f_ce)), z_bar) # (36) normalized discharge voltage
 P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
 
-#print toutes les valeurs
-# print("Gamma_bar: "+ str(Gamma_bar))
-# print("G_bar: "+ str(G_bar))
-#print("u_i: "+ str(u_i))
-#print("n_i: "+ str(n_i))
-#print("n_g: "+ str(n_g))
-#print("f_ce: "+ str(f_ce))
-# print("intB2: "+ str(intB2))
-# print("BB: "+ str(BB))
-# print("omega_ce: "+ str(omega_ce))
-# print("alpha_bar: "+ str(alpha_bar))
-# print("nu_eff: "+ str(nu_eff))
-# print("mu_eff: "+ str(mu_eff))
-# print("Ez: "+ str(Ez))
-# print("Phi_d_bar: "+ str(Phi_d_bar))
-# print("P_d: "+ str(P_d))
+# Recalculation of Te
+Te_bar_end = np.zeros(N0)
+for i in range(N0):
+    print('pause')
+    [Te_0, Te_1] = find_sign_change(lambda Te: F_Te(Te, z_bar[i], G_bar[i], Gamma_bar[i]), 0.5, 3 * E_iz)
+    Te_bar_end[i] = secant_method(F_Te, z_bar[i], G_bar[i], Gamma_bar[i], Te_0, Te_1)
+Te_end = Te_bar_end * E_iz
 
 
-# E_w = np.zeros(N0)
-# for kk in range(N0):
-#     E_w[kk] = Te_bar_global[kk] * (2 + (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))) #(11)
-
-K_iz = K_iz_star * ((3 * Te_bar_global / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_bar_global))
-#OMEGA = L_ch * K_iz * Q_m / (M * A_ch * v_g * v_star)
+# K_iz = K_iz_star * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
 S_iz = n_i * n_g * K_iz
 
 # Engineering output
@@ -270,78 +250,141 @@ thrust_to_power_mN_kW = 1e3 * thrust_mN / P_d
 total_efficiency = (thrust_mN * 1e-3)**2 / (2 * Q_m * P_d)
 elec_efficency = thrust_power / (I_d * Phi_d_bar * E_iz)
 
-# n_imax, i_nimax = np.max(n_i), np.argmax(n_i)
-# zip_nmax = z[i_nimax]
-# Siz_max, i_Sizmax = np.max(S_iz), np.argmax(S_iz)
-# z_infl = z[i_Sizmax]
-# E_max, i_Emax = np.max(Ez), np.argmax(Ez)
-# z_Emax = z[i_Emax]
-# Te_max, i_Temax = np.max(Te_bar_global), np.argmax(Te_bar_global)
-# z_Temax = z[i_Temax]
 
 print("Thrust: "+ str(thrust_mN)+ " mN")
 print("ISP: "+ str(I_sp)+ " s")
 print("Thrust to power ratio: "+ str(thrust_to_power_mN_kW)+ " mN/kW")
 print("Time: "+ str(ti.time() - start_time) + " s")
-
+#Te_end = np.zeros(N0)
+z = z_bar * L_ch
+np.savetxt("values_anna.csv", np.column_stack((z, z_bar, n_i, n_g, Te_end, u_i, Ez, S_iz, BB, n_g * v_g, n_i * u_i)), delimiter=',')
+np.savetxt("values_anna_Te.csv", np.column_stack((z_bar_array, T_bar_array)), delimiter=',')
 
 # Plotting
 
-plt.figure(1)
-plt.plot(z_bar, n_i, 'k', linewidth=1)
-plt.twinx()
-plt.plot(z_bar, n_g, 'r', linewidth=1)
-plt.legend(['$n_i$', '$n_g$'], fontsize=14)
-plt.xlim([0, 1])
-plt.xlabel('$z_bar$', fontsize=14)
-plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
-plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#
-# #plt.savefig('densities.pdf')
+#plots the function F_Te to find the root
+Te = np.linspace(0 * E_iz, 3 * E_iz, 2500)    
+x = z_bar[N0-1]
+F = np.zeros(2500)
+for i in range(2500):
+    F[i] = F_Te(Te[i], x, G_bar[N0-1], Gamma_bar[N0-1])
 
-# plt.figure(2)
-# plt.plot(z, Te_bar_global, 'b', linewidth=1)
-# plt.xlim([0, 1])
-# plt.ylim([0, 25])
-# plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
-# plt.ylabel('$T_e$ (V)', fontsize=14)
-# plt.gca().tick_params(labelsize=14)
-# #plt.savefig('Te.pdf')
-
-plt.figure(3)
-plt.plot(z_bar, u_i, 'b', linewidth=1)
-plt.xlim([0, 1])
-plt.ylabel('$u_i$ (m/s)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('ion-velocity.pdf')
-
-plt.figure(4)
-plt.plot(z_bar, Ez, 'k', linewidth=1)
-plt.twinx()
-plt.plot(z_bar, S_iz, 'r', linewidth=1)
-plt.xlim([0, 1])
-plt.xlabel('$z_bar$', fontsize=14)
-plt.ylabel('$E_x$ (V/m)', fontsize=14)
-plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('ExSiz.pdf')
-
-plt.figure(6)
-plt.plot(z_bar, BB * 1e4, 'b', linewidth=1)
-plt.xlim([0, 1])
-plt.xlabel('$z/L_{\\rm ch}$', fontsize=14)
-plt.ylabel('$B$ (Gauss)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('Bfield.pdf')
-
-plt.figure(8)
-plt.plot(z_bar, n_g * v_g, 'b', label='Neutrals')
-plt.plot(z_bar, n_i * u_i, 'r', label='Ions')
-plt.xlim([0, 1])
-plt.xlabel('$z_bar$', fontsize=14)
-plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
-plt.legend(fontsize=14)
-plt.gca().tick_params(labelsize=14)
+plt.plot(Te/E_iz, F)
+plt.xlabel('Te_Bar')
+plt.ylabel('F_Te')
 plt.show()
-#plt.savefig('Fluxes.pdf')
+
+def plot_densities(z_bar, n_i, n_g, label_i, label_g, color_i, color_g,ax1=None, ax2=None):
+    if ax1 is None or ax2 is None:  # Si les axes ne sont pas fournis, créez-en
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+    
+    # Tracé des densités ioniques sur l'axe principal
+    line1, = ax1.plot(z_bar, n_i, color=color_i, linewidth=1, label=label_i)
+    ax1.set_xlabel('$z_{bar}$', fontsize=14)
+    ax1.set_ylabel('$n_i$ (m$^{-3}$)', fontsize=14, color=color_i)
+    ax1.tick_params(axis='y', labelcolor=color_i)
+    
+    # Tracé des densités neutres sur l'axe secondaire
+    line2, = ax2.plot(z_bar, n_g, color=color_g, linewidth=1, label=label_g)
+    ax2.set_ylabel('$n_g$ (m$^{-3}$)', fontsize=14, color=color_g)
+    ax2.tick_params(axis='y', labelcolor=color_g)
+    
+    # Titre commun
+    ax1.set_title('Ion and Neutral Densities', fontsize=16)
+    
+    ax1.legend(handles=[line1], loc='upper left', fontsize=12)  # Légende pour ax1
+    ax2.legend(handles=[line2], loc='upper right', fontsize=12)  # Légende pour ax2
+    
+    return ax1, ax2  # Renvoie les axes pour des ajustements supplémentaires
+
+
+#def plot_electron_temperature(z_bar_array, T_bar_array, color):
+def plot_electron_temperature(z, Te_end, color):
+    plt.plot(z, Te_end, 'b', linewidth=1, color = color)
+    #plot T_bar_array to see the evolution of Te
+    #plt.plot(z_bar_array, T_bar_array, marker='o', color='b', ls ='')
+    plt.xlim([0, 1])
+    plt.ylim([0, 25])
+    plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+    plt.ylabel('$T_e$ (V)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Electron temperature')
+
+def plot_ion_velocity(z_bar, u_i, color):
+    plt.plot(z_bar, u_i, 'b', linewidth=1, color = color)
+    plt.xlim([0, 1])
+    plt.ylabel('$u_i$ (m/s)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Ion velocity')
+
+
+def plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, label_ez, label_siz, color_ez, color_siz, ax1=None, ax2=None):
+    if ax1 is None or ax2 is None:  # Si les axes ne sont pas fournis, créez-en
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+    
+    # Tracé des densités ioniques sur l'axe principal
+    line1, = ax1.plot(z_bar, Ez, color=color_ez, linewidth=1, label=label_ez)
+    ax1.set_xlabel('$z_{bar}$', fontsize=14)
+    ax1.set_ylabel('$E_x$ (V/m)', fontsize=14, color=color_ez)
+    ax1.tick_params(axis='y', labelcolor=color_ez)
+    
+    # Tracé des densités neutres sur l'axe secondaire
+    line2, = ax2.plot(z_bar, S_iz, color=color_siz, linewidth=1, label=label_siz)
+    ax2.set_ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14, color=color_siz)
+    ax2.tick_params(axis='y', labelcolor=color_siz)
+    
+    # Titre commun
+    ax1.set_title('Electric field and ionization source', fontsize=16)
+    
+    ax1.legend(handles=[line1], loc='upper left', fontsize=12)  # Légende pour ax1
+    ax2.legend(handles=[line2], loc='upper right', fontsize=12)  # Légende pour ax2
+    
+    return ax1, ax2  # Renvoie les axes pour des ajustements supplémentaires
+
+def plot_magnetic_field(z_bar, BB):
+    plt.plot(z_bar, BB * 1e4, 'b', linewidth=1)
+    plt.xlim([0, 1])
+    plt.xlabel('$z/L_{\\rm ch}$', fontsize=14)
+    plt.ylabel('$B$ (Gauss)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Magnetic field')
+    
+
+vng = n_g * v_g
+vni = n_i * u_i
+
+def plot_fluxes(z_bar, vng, vni, color_g, color_i):
+    plt.plot(z_bar, vng, 'b', label='Neutrals', color = color_g)
+    plt.plot(z_bar, vni, 'r', label='Ions', color = color_i)
+    plt.xlim([0, 1])
+    plt.xlabel('$z_bar$', fontsize=14)
+    plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
+    plt.legend(fontsize=14)
+    plt.title('Mass fluxes')
+    plt.gca().tick_params(labelsize=14)
+
+# plt.figure()
+# plot_densities_anna(z_bar, n_i, n_g, 'red', 'blue')
+# plt.show()
+
+# plt.figure()
+# plot_electron_temperature_anna(z, Te_end, 'black')
+# plt.show()
+
+# plt.figure()
+# plot_ion_velocity_anna(z_bar, u_i, 'red')
+# plt.show()
+
+# plt.figure()
+# plot_electric_field_and_ionization_source_anna(z_bar, Ez, S_iz, 'black', 'green')
+# plt.show()
+
+# plt.figure()
+# plot_magnetic_field_anna(z_bar, BB, 'blue')
+# plt.show()
+
+# plt.figure()
+# plot_fluxes_anna(z_bar, vng, vni, 'blue', 'red')
+# plt.show()

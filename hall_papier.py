@@ -109,17 +109,16 @@ G_0_bar = 0.1 * Gamma_0_bar
 #f_m = Km/Km_star #(31)
 f_m = 1 # Pour l'instant on prend f_m = 1
 
-def F_Te(Te, z_bar, G_bar, Gamma_bar):
+def F_Te(Te_bar, z_bar, G_bar, Gamma_bar):
     global f_ce, sigma, M_bar
     
-    Te_bar = Te/E_iz #(28)
     K_iz = K_iz_star * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))
     # z_bar = z/L_ch #(21) just above
     f_ce = np.exp(-C_mag * (z_bar - 1)**2) #(45)
 
     f_iz = K_iz/K_iz_star #(30)
     #sigma_see = 0.207 * Te**0.549 #(12)
-    sigma_see = 1/25 * Te
+    sigma_see = 1/25 * Te_bar * E_iz
     sigma = np.minimum(sigma_scl, sigma_see) #(14) 
     M_bar = M/m_e #(33)
 
@@ -139,17 +138,16 @@ def find_sign_change(f, a, b, steps=100):
             return x_values[k], x_values[k + 1]
     raise ValueError("Pas de changement de signe trouvé dans l'intervalle donné")
 
-def secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0, Te_1):
-    F_Te_0 = F_Te(Te_0, z_bar, G_bar, Gamma_bar)
-    F_Te_1 = F_Te(Te_1, z_bar, G_bar, Gamma_bar)
+def secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0_bar, Te_1_bar):
+    F_Te_0 = F_Te(Te_0_bar, z_bar, G_bar, Gamma_bar)
+    F_Te_1 = F_Te(Te_1_bar, z_bar, G_bar, Gamma_bar)
         
     while np.abs(F_Te_0) > 1e-3:
-        Te_2 = Te_1 - F_Te_1 * (Te_1 - Te_0) / (F_Te_1 - F_Te_0)        
-        Te_0, Te_1 = Te_1, Te_2
-        F_Te_0, F_Te_1 = F_Te_1, F_Te(Te_2, z_bar, G_bar, Gamma_bar)
-    
-    Te_bar = Te_1/E_iz #(28)
-    
+        Te_2_bar = Te_1_bar - F_Te_1 * (Te_1_bar - Te_0_bar) / (F_Te_1 - F_Te_0)        
+        Te_0_bar, Te_1_bar = Te_1_bar, Te_2_bar
+        F_Te_0, F_Te_1 = F_Te_1, F_Te(Te_2_bar, z_bar, G_bar, Gamma_bar)
+    Te_bar = Te_1_bar
+        
     return Te_bar  # Return the final approximation after max iterations
 
 z_bar_array = []
@@ -165,8 +163,8 @@ def RHS_Anna_HET(z_bar, y): #z corresponds to the distance along the channel, y 
     
     ######## Secant method to find the root of F_Te
     # Initial guess
-    [Te_0, Te_1] = find_sign_change(lambda Te: F_Te(Te, z_bar, G_bar, Gamma_bar), 0.5, 30)
-    Te_bar = secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0, Te_1)
+    [Te_0_bar, Te_1_bar] = find_sign_change(lambda Te_bar: F_Te(Te_bar, z_bar, G_bar, Gamma_bar), 0.5/E_iz, 30/E_iz)
+    Te_bar = secant_method(F_Te, z_bar, G_bar, Gamma_bar, Te_0_bar, Te_1_bar)
     z_bar_array.append(z_bar)
     T_bar_array.append(Te_bar)
     
@@ -232,12 +230,11 @@ P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
 Te_bar_end = np.zeros(N0)
 for i in range(N0):
     print('pause')
-    [Te_0, Te_1] = find_sign_change(lambda Te: F_Te(Te, z_bar[i], G_bar[i], Gamma_bar[i]), 0.5, 3 * E_iz)
-    Te_bar_end[i] = secant_method(F_Te, z_bar[i], G_bar[i], Gamma_bar[i], Te_0, Te_1)
+    [Te_0_bar, Te_1_bar] = find_sign_change(lambda Te_bar: F_Te(Te_bar, z_bar[i], G_bar[i], Gamma_bar[i]), 0.5/E_iz, 30/ E_iz)
+    Te_bar_end[i] = secant_method(F_Te, z_bar[i], G_bar[i], Gamma_bar[i], Te_0_bar, Te_1_bar)
 Te_end = Te_bar_end * E_iz
 
-
-# K_iz = K_iz_star * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
+K_iz = K_iz_star * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
 S_iz = n_i * n_g * K_iz
 
 # Engineering output
@@ -263,16 +260,28 @@ np.savetxt("values_anna_Te.csv", np.column_stack((z_bar_array, T_bar_array)), de
 # Plotting
 
 #plots the function F_Te to find the root
-Te = np.linspace(0 * E_iz, 3 * E_iz, 2500)    
-x = z_bar[N0-1]
-F = np.zeros(2500)
-for i in range(2500):
-    F[i] = F_Te(Te[i], x, G_bar[N0-1], Gamma_bar[N0-1])
+# Te = np.linspace(0 * E_iz, 3 * E_iz, 2500)  
+# x = z_bar[N0-1]
+# F = np.zeros(2500)
+# for i in range(2500):
+#     F[i] = F_Te(Te[i], x, G_bar[N0-1], Gamma_bar[N0-1])
 
-plt.plot(Te/E_iz, F)
-plt.xlabel('Te_Bar')
-plt.ylabel('F_Te')
-plt.show()
+# plt.plot(Te/E_iz, F)
+# plt.xlabel('Te_Bar')
+# plt.ylabel('F_Te')
+# plt.show()
+
+# sigma_see = 1/25 * Te_end
+# sigma_scl_array = np.array([1 - 8.3*np.sqrt(m_e / M) for i in range(N0)])
+# sigma = np.minimum(sigma_scl, sigma_see) #(14) 
+# plt.plot(Te_end, sigma_see, label='sigma_see')
+# plt.plot(Te_end, sigma_scl_array, label='sigma_scl')
+# plt.plot(Te_end,sigma, label='sigma')
+# plt.xlabel('Te_end')
+# plt.ylabel('sigma')
+# plt.legend()
+# plt.show()
+
 
 def plot_densities(z_bar, n_i, n_g, label_i, label_g, color_i, color_g,ax1=None, ax2=None):
     if ax1 is None or ax2 is None:  # Si les axes ne sont pas fournis, créez-en

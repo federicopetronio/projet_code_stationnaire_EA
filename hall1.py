@@ -96,6 +96,53 @@ Gamma_m = Q_m / (M * A_ch)
 chi_0 = 5e-3
 g_0 = 0.1 * chi_0  # initial velocity is then v_star/10
 
+# x = 0.1
+
+# f = np.exp(-beta_mag * (x - 1)**2) #(45) f effectively represents the normalized radial magnetic field profile with Bmax
+# beta_bar = beta * f  
+# alpha_bar = alpha * f**2 
+    
+# Te = np.linspace(0.5, 25, 2500)
+# sigma = np.minimum(sigma_scl, (1/25) * Te)
+# E_w = 2 * Te + Te * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
+# term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi_0)
+# term2 = (1 - chi_0)**2 * g_0**2 * alpha_bar / (chi_0**4 * (1 - I_bar * chi_0) * (1 + beta_bar - I_bar * chi_0))
+# i_min = np.argmin(np.abs(term2 - term1))
+# T_e = Te[i_min]
+
+# print("TE", T_e)
+# exit()
+# print("stop")
+
+def F_Te(Te, z, g, chi):
+    global f_ce, sigma, M_bar
+
+    Te_bar = Te/E_iz
+    z_bar = z/L_ch
+    f = np.exp(-beta_mag * (z_bar - 1)**2) #(45) f effectively represents the normalized radial magnetic field profile with Bmax
+    beta_bar = beta * f  
+    alpha_bar = alpha * f**2 
+
+    sigma = np.minimum(sigma_scl, (1/25) * Te)
+    E_w = 2 * Te_bar + Te_bar * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
+    term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi)
+    term2 = (1 - chi)**2 * g**2 * alpha_bar / (chi**4 * (1 - I_bar * chi) * (1 + beta_bar - I_bar * chi))
+    
+    return term2 - term1
+
+#plots the function F_Te to find the root
+# Te = np.linspace(0 * E_iz, 3 * E_iz, 2500)    
+# z = 0.5 * L_ch
+# F = np.zeros(2500)
+# for i in range(2500):
+#     F[i] = F_Te(Te[i], z, g_0, chi_0)
+
+# plt.plot(Te/E_iz, F)
+# plt.xlabel('Te_Bar')
+# plt.ylabel('F_Te')
+# plt.show()
+
+
 def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is the vector of the unknowns
     global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
 
@@ -109,6 +156,12 @@ def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is
 
     Te = np.linspace(0.5, 25, 2500)
     sigma = np.minimum(sigma_scl, (1/25) * Te)
+    # E_w = 2 * Te + Te * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
+    # term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi)
+    # term2 = (1 - chi)**2 * g**2 * alpha_bar / (chi**4 * (1 - I_bar * chi) * (1 + beta_bar - I_bar * chi))
+    
+    Te_bar = Te/E_iz
+
     E_w = 2 * Te + Te * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
     term1 = A_bar * (3 * Te / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * Te)) + B_bar * np.sqrt(Te / (gamma_bar * E_iz)) * (E_w / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi)
     term2 = (1 - chi)**2 * g**2 * alpha_bar / (chi**4 * (1 - I_bar * chi) * (1 + beta_bar - I_bar * chi))
@@ -123,11 +176,9 @@ def RHS_Trevor_HET(x, y): #x corresponds to the distance along the channel, y is
 
     return dy
 
-
 sol = solve_ivp(RHS_Trevor_HET, [0, 1], [chi_0, g_0], method='RK45', rtol=1e-5, atol=[1e-5, 1e-5])
 x = sol.t
 Y = sol.y
-
 
 # plt.figure(1)
 # plt.plot(x, Y[0, :], 'b', linewidth=1)
@@ -159,22 +210,24 @@ V_d = E_c * np.trapz(alpha_bar * g * (1 - chi) / (chi**2 * (1 + beta_bar - I_bar
 Power = V_d * I_d
 
 #print toutes les valeurs
-print("g: "+ str(g))
-print("u_i: "+ str(u_i))
-print("n_i: "+ str(n_i))
-print("n_g: "+ str(n_g))
-print("f: "+ str(f))
-print("beta_bar: "+ str(beta_bar))
-print("intB2: "+ str(intB2))
-print("BB: "+ str(BB))
-print("omega_ce: "+ str(omega_ce))
-print("alpha_bar: "+ str(alpha_bar))
-print("nu_eff: "+ str(nu_eff))
-print("mu_eff: "+ str(mu_eff))
-print("E_x: "+ str(E_x))
-print("V_d: "+ str(V_d))
-print("Power: "+ str(Power))
+# print("g: "+ str(g))
+# print("u_i: "+ str(u_i))
+# print("n_i: "+ str(n_i))
+# print("n_g: "+ str(n_g))
+# print("f: "+ str(f))
+# print("beta_bar: "+ str(beta_bar))
+# print("intB2: "+ str(intB2))
+# print("BB: "+ str(BB))
+# print("omega_ce: "+ str(omega_ce))
+# print("alpha_bar: "+ str(alpha_bar))
+# print("nu_eff: "+ str(nu_eff))
+# print("mu_eff: "+ str(mu_eff))
+# print("E_x: "+ str(E_x))
+# print("V_d: "+ str(V_d))
+# print("Power: "+ str(Power))
 
+print('ng' + str(n_g))
+print('x' + str(x))
 
 T_e = np.zeros(N0)
 E_w = np.zeros(N0)
@@ -182,7 +235,7 @@ for kk in range(N0):
     T_e[kk] = 0.5
     for ii in range(2500):
         sigma = min(sigma_scl, (1 / 25) * T_e[kk]**1)
-        E_w[kk] = 2 * T_e[kk] + T_e[kk] * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
+        E_w[kk] = 2 * T_e[kk]/E_iz + T_e[kk]/E_iz * (1 - sigma) * np.log((1 - sigma) * np.sqrt(M / (2 * np.pi * m_e)))
         term1 = A_bar * (3 * T_e[kk] / (2 * E_iz))**0.25 * np.exp(-4 * E_iz / (3 * T_e[kk])) + B_bar * np.sqrt(T_e[kk] / (gamma_bar * E_iz)) * (E_w[kk] / (E_iz * gamma_bar)) / (1 - sigma) / (1 - I_bar * chi[kk])
         term2 = (1 - chi[kk])**2 * g[kk]**2 * alpha_bar[kk] / (chi[kk]**4 * (1 - I_bar * chi[kk]) * (1 + beta_bar[kk] - I_bar * chi[kk]))
         if term1 < term2:
@@ -191,6 +244,19 @@ for kk in range(N0):
 K_iz = kiz0 * ((3 * T_e / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * T_e))
 OMEGA = L_ch * K_iz * Q_m / (M * A_ch * v_g * v_star)
 S_iz = n_i * n_g * K_iz
+
+# sigma_see = 1/25 * T_e
+# sigma_scl_array = np.array([1 - 8.3*np.sqrt(m_e / M) for i in range(N0)])
+# sigma = np.minimum(sigma_scl_array, sigma_see) #(14) 
+# plt.plot(T_e, sigma_see, label='sigma_see')
+# plt.plot(T_e, sigma_scl_array, label='sigma_scl')
+# plt.plot(T_e,sigma, label='sigma')
+# plt.xlabel('Te_end')
+# plt.ylabel('sigma')
+# plt.legend()
+# plt.show()
+
+#np.savetxt("values_sigma.csv", np.column_stack((sigma_see, sigma_scl_array, sigma)), delimiter=',')
 
 # Engineering output
 chi_L = chi[N0 - 1]
@@ -216,63 +282,80 @@ print("ISP: "+ str(I_sp)+ " s")
 print("Thrust to power ratio: "+ str(thrust_to_power_mN_kW)+ " mN/kW")
 print("Time: "+ str(ti.time() - start_time) + " s")
 
+np.savetxt("values.csv", np.column_stack(((x, n_i, n_g, T_e, u_i, E_x, S_iz, BB, n_g * v_g, n_i * u_i))), delimiter=',')
+
 
 # Plotting
+def plot_densities(x, n_i, n_g):
+    plt.figure(1)
+    plt.plot(x, n_i, 'k', linewidth=1)
+    plt.twinx()
+    plt.plot(x, n_g, 'r', linewidth=1)
+    plt.xlim([0, 1])
+    plt.xlabel('$x$ (m)', fontsize=14)
+    plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
+    plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Ion and neutral densities')
+    plt.show()
 
-plt.figure(1)
-plt.plot(x, n_i, 'k', linewidth=1)
-plt.twinx()
-plt.plot(x, n_g, 'r', linewidth=1)
-plt.xlim([0, 1])
-plt.xlabel('$x$ (m)', fontsize=14)
-plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
-plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#
-# #plt.savefig('densities.pdf')
+def plot_electron_temperature(x, T_e):
+    plt.figure(2)
+    plt.plot(x, T_e, 'b', linewidth=1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 25])
+    plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+    plt.ylabel('$T_e$ (V)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Electron temperature')   
+    plt.show()
 
-plt.figure(2)
-plt.plot(x, T_e, 'b', linewidth=1)
-plt.xlim([0, 1])
-plt.ylim([0, 25])
-plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
-plt.ylabel('$T_e$ (V)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('Te.pdf')
+def plot_ion_velocity(x, u_i):
+    plt.figure(3)
+    plt.plot(x, u_i, 'b', linewidth=1)
+    plt.xlim([0, 1])
+    plt.ylabel('$u_i$ (m/s)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Ion velocity')
+    plt.show()
 
-plt.figure(3)
-plt.plot(x, u_i, 'b', linewidth=1)
-plt.xlim([0, 1])
-plt.ylabel('$u_i$ (m/s)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('ion-velocity.pdf')
+def plot_electric_field_and_ionization_source(x, E_x, S_iz):
+    plt.figure(4)
+    plt.plot(x, E_x, 'k', linewidth=1)
+    plt.twinx()
+    plt.plot(x, S_iz, 'r', linewidth=1)
+    plt.xlim([0, 1])
+    plt.xlabel('$x$(m)', fontsize=14)
+    plt.ylabel('$E_x$ (V/m)', fontsize=14)
+    plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Electric field and ionization source')
+    plt.show()
 
-plt.figure(4)
-plt.plot(x, E_x, 'k', linewidth=1)
-plt.twinx()
-plt.plot(x, S_iz, 'r', linewidth=1)
-plt.xlim([0, 1])
-plt.xlabel('$x$(m)', fontsize=14)
-plt.ylabel('$E_x$ (V/m)', fontsize=14)
-plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('ExSiz.pdf')
+def plot_magnetic_field(x, BB):
+    plt.figure(6)
+    plt.plot(x, BB * 1e4, 'b', linewidth=1)
+    plt.xlim([0, 1])
+    plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+    plt.ylabel('$B$ (Gauss)', fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.title('Magnetic field')
+    plt.show()
 
-plt.figure(6)
-plt.plot(x, BB * 1e4, 'b', linewidth=1)
-plt.xlim([0, 1])
-plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
-plt.ylabel('$B$ (Gauss)', fontsize=14)
-plt.gca().tick_params(labelsize=14)
-#plt.savefig('Bfield.pdf')
+def plot_fluxes(x, n_g, v_g, n_i, u_i):
+    plt.figure(8)
+    plt.plot(x, n_g * v_g, 'b', label='Neutrals')
+    plt.plot(x, n_i * u_i, 'r', label='Ions')
+    plt.xlim([0, 1])
+    plt.xlabel('$x$(m)', fontsize=14)
+    plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
+    plt.legend(fontsize=14)
+    plt.gca().tick_params(labelsize=14)
+    plt.show()
 
-plt.figure(8)
-plt.plot(x, n_g * v_g, 'b', label='Neutrals')
-plt.plot(x, n_i * u_i, 'r', label='Ions')
-plt.xlim([0, 1])
-plt.xlabel('$x$(m)', fontsize=14)
-plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
-plt.legend(fontsize=14)
-plt.gca().tick_params(labelsize=14)
-plt.show()
-#plt.savefig('Fluxes.pdf')
+# plot_densities(x, n_i, n_g)
+# plot_electron_temperature(z, T_e)
+# plot_ion_velocity(x, u_i)
+# plot_electric_field_and_ionization_source(x, E_x, S_iz)
+# plot_magnetic_field(x, BB)
+# plot_fluxes(x, n_g, v_g, n_i, u_i)

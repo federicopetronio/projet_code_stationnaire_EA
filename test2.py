@@ -43,19 +43,19 @@ plot_electron_temperature(x, T_e, 'red')
 plt.legend(["Anna", "v1"])
 
 # ################# Siz et Ez
-# fig, ax1 = plt.subplots()
-# ax2 = ax1.twinx()
+fig, ax1 = plt.subplots()
+ax2 = ax1.twinx()
 
-# # Tracé des premières données
-# plot_electric_field_and_ionization_source(z_bar, Ez, S_iz_anna, 'Ez', 'S_iz_anna', 'blue', 'green', ax1=ax1, ax2=ax2)
+# Tracé des premières données
+plot_electric_field_and_ionization_source(z_bar, Ez, S_iz_anna, 'Ez', 'S_iz_anna', 'blue', 'green', ax1=ax1, ax2=ax2)
 
-# # Tracé des deuxièmes données (sur les mêmes axes)
-# plot_electric_field_and_ionization_source(x, E_x, S_iz, 'E_x', 'S_iz_anna', 'red', 'orange', ax1=ax1, ax2=ax2)
+# Tracé des deuxièmes données (sur les mêmes axes)
+plot_electric_field_and_ionization_source(x, E_x, S_iz, 'E_x', 'S_iz_anna', 'red', 'orange', ax1=ax1, ax2=ax2)
 
-# # Affichage final
-# plt.xlim([0, 1])  # Limites communes pour l'axe x
-# plt.tight_layout()  # Ajustement automatique des espaces
-# plt.show()
+# Affichage final
+plt.xlim([0, 1])  # Limites communes pour l'axe x
+plt.tight_layout()  # Ajustement automatique des espaces
+plt.show()
 
 
 plt.figure()

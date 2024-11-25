@@ -218,7 +218,7 @@ BB = B_max * f_ce # (29) magnetic field
 omega_ce = e * BB / m_e #electron cyclotron frequency
 
 alpha_bar = beta * f_ce**2 #normalized electron mobility
-
+ 
 nu_eff = Km_star * n_g + delta_anom * omega_ce # (6) effective collision frequency
 mu_eff = e * nu_eff / (m_e * omega_ce**2) # (16) effective mobility
 Ez = Gamma_d * (1 - Gamma_bar) / (n_i * mu_eff) # (17) electric field

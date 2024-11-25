@@ -56,7 +56,7 @@ plot_electric_field_and_ionization_source(x, E_x, S_iz, 'E_x', 'S_iz_anna', 'red
 plt.xlim([0, 1])  # Limites communes pour l'axe x
 plt.tight_layout()  # Ajustement automatique des espaces
 plt.show()
-
+ 
 
 plt.figure()
 plot_ion_velocity(z_bar, u_i_anna, color='blue')

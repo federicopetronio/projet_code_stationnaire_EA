@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize_scalar
+import sys
 
 # 1D model of a Hall thruster in xenon and krypton
 # Trevor Lafleur and Pascal Chabert, June 2024
@@ -57,16 +58,17 @@ elif thruster == 'PPS20k':
 if propellant == 'xenon':
     M = 131 * 1.67e-27
     v_g = np.sqrt(k_B * T_g / M)
-    K_iz_star = 1.8 * 1e-13
+    K_iz_0 = 1.8 * 1e-13
     E_iz = 12.127
     kexc0 = 1.2921e-13
     E_exc = 11.6
     Km_star = 2.5e-13
     delta_anom = 3.3e-3  # anomalous transport
+    K_iz_star = 5.45e-14
 elif propellant == 'krypton':
     M = 83.8 * 1.67e-27
     v_g = np.sqrt(k_B * T_g / M)
-    K_iz_star = 1.7 * 1e-13
+    K_iz_0 = 1.7 * 1e-13
     E_iz = 14  # approx ionization rate
     kexc0 = 0.6e-13
     E_exc = 12.75  # excitation rate
@@ -82,7 +84,6 @@ Q_m = Q_mgs * 1e-6 # mass flow rate in kg/s
 f_epsilon = 2 # see Eq. (34) and Table I
 h_R = 0.5 # edge-to-center density ratio
 sigma_scl = 1 - 8.3*np.sqrt(m_e / M) # sigma critical, see Eq. (13)
-
 
 # Similarity parameters
 E_c = E_iz * f_epsilon # (34)
@@ -113,7 +114,7 @@ def F_Te(Te_bar, z_bar, G_bar, Gamma_bar):
     '''This function calculates the electron temperature Te_bar at a given distance z_bar along the channel'''
     # global f_ce, sigma, M_bar
     
-    K_iz = K_iz_star * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar)) # see Eq. (30) paper BM
+    K_iz = K_iz_0 * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar)) # see Eq. (30) paper BM
     # z_bar = z/L_ch #(21) just above
     f_ce = np.exp(-C_mag * (z_bar - 1)**2) #(45)
 
@@ -128,15 +129,18 @@ def F_Te(Te_bar, z_bar, G_bar, Gamma_bar):
     denominateur = Gamma_bar**4 * (f_m*(1 - I_bar * Gamma_bar) + gamma * f_ce)
     term1 = alpha * f_iz * f_epsilon * (1 - I_bar * Gamma_bar)
     term2 = lmbd * Te_bar**(3/2)*(2/(1 - sigma) + np.log((1 - sigma)*np.sqrt(M_bar/(2*np.pi))))
-    
-    return numerateur/denominateur - term1 - term2
+    # if sigma == sigma_scl:
+    #     print("sigma = sigma_scl")
+    #     print(sigma_scl)
+    #     print(numerateur/denominateur, term1, term2)
 
+    return numerateur/denominateur - term1 - term2
 
 def F_Te_terms(Te_bar, z_bar, G_bar, Gamma_bar):
     '''This function calculates the electron temperature Te_bar at a given distance z_bar along the channel'''
     # global f_ce, sigma, M_bar
 
-    K_iz = K_iz_star * ((3 / 2 * Te_bar) ** 0.25) * np.exp(-4 / (3 * Te_bar))  # see Eq. (30) paper BM
+    K_iz = K_iz_0 * ((3 / 2 * Te_bar) ** 0.25) * np.exp(-4 / (3 * Te_bar))  # see Eq. (30) paper BM
     # z_bar = z/L_ch #(21) just above
     f_ce = np.exp(-C_mag * (z_bar - 1) ** 2)  # (45)
 
@@ -195,8 +199,7 @@ def RHS_Anna_HET(z_bar, y):
     z_bar_array.append(z_bar)
     T_bar_array.append(Te_bar)
     
-    
-    K_iz = K_iz_star * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))    
+    K_iz = K_iz_0 * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))
     f_iz = K_iz/K_iz_star
     f_ce = np.exp(-C_mag * (z_bar - 1)**2) #(45)
         
@@ -262,7 +265,7 @@ for i in range(N0):
     Te_bar_end[i] = secant_method(F_Te, z_bar[i], G_bar[i], Gamma_bar[i], Te_0_bar, Te_1_bar)
 Te_end = Te_bar_end * E_iz
 
-K_iz = K_iz_star * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
+K_iz = K_iz_0 * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
 S_iz = n_i * n_g * K_iz
 
 # Engineering output
@@ -403,27 +406,33 @@ def plot_fluxes(z_bar, vng, vni, color_g, color_i):
     plt.gca().tick_params(labelsize=14)
 
 # plt.figure()
-# plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
+plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
 # # plt.show()
 #
+
+Te_pascal = np.loadtxt("T_e_pascal.txt")
+x_axis = np.loadtxt("x_pascal.txt")
+
+
 plt.figure()
 plot_electron_temperature(z_bar, Te_end, 'black')
 plt.axhline(y=(sigma_scl / .207) ** (1 / .549), color='g', linestyle='--', label='$T_{scl}$')
+plt.plot(x_axis, Te_pascal, label='Pascal', color='r')
 plt.legend()
 # # plt.show()
 #
-# plt.figure()
-# plot_ion_velocity(z_bar, u_i, 'red')
+plt.figure()
+plot_ion_velocity(z_bar, u_i, 'red')
 # plt.show()
 #
 # plt.figure()
-# plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
+plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
 # # plt.show()
 #
-# plt.figure()
-# plot_magnetic_field(z_bar, BB)
+plt.figure()
+plot_magnetic_field(z_bar, BB)
 # # plt.show()
 #
-# plt.figure()
-# plot_fluxes(z_bar, vng, vni, 'blue', 'red')
+plt.figure()
+plot_fluxes(z_bar, vng, vni, 'blue', 'red')
 plt.show()

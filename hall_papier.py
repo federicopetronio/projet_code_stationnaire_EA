@@ -22,7 +22,7 @@ k_B = 1.38e-23
 T_g = 500
 
 # Engineering inputs
-B_max = 300e-4  # Bmax in tesla
+B_max = 200e-4  # Bmax in tesla
 C_mag = 4  # Profile factor
 Q_mgs = 5  # Mass flow rate in mg/s
 
@@ -85,6 +85,7 @@ f_epsilon = 2 # see Eq. (34) and Table I
 h_R = 0.5 # edge-to-center density ratio
 sigma_scl = 1 - 8.3*np.sqrt(m_e / M) # sigma critical, see Eq. (13)
 
+
 # Similarity parameters
 E_c = E_iz * f_epsilon # (34)
 v_star = np.sqrt(e * E_iz / M) # just above (21)
@@ -103,7 +104,7 @@ Gamma_m = Q_m / (M * A_ch) # after (15) in the text
 Gamma_0_bar = 0.005 
 #Gamma_0 = Gamma_0_bar * Gamma_d
 #G_0_bar = Gamma_0_bar * np.sqrt((k_B * T_g)/(e * E_iz))  
-G_0_bar = 0.1 * Gamma_0_bar
+G_0_bar = 0.1 * Gamma_0_bar * f_epsilon**(1/2)
 #G_0 = (v_star * Gamma_d) * G_0_bar
 
 #Km = 2.6e-13
@@ -120,7 +121,7 @@ def F_Te(Te_bar, z_bar, G_bar, Gamma_bar):
 
     f_iz = K_iz/K_iz_star #(30)
     #sigma_see = 0.207 * Te**0.549 #(12)
-    # sigma_see = 1/25 * Te_bar * E_iz
+    #sigma_see = 1/25 * Te_bar * E_iz
     sigma_see = 0.207 * (Te_bar * E_iz)**.549
     sigma = np.minimum(sigma_scl, sigma_see) #(14)
     M_bar = M / m_e
@@ -155,7 +156,8 @@ def F_Te_terms(Te_bar, z_bar, G_bar, Gamma_bar):
     denominateur = Gamma_bar ** 4 * (f_m * (1 - I_bar * Gamma_bar) + gamma * f_ce)
     term1 = alpha * f_iz * f_epsilon * (1 - I_bar * Gamma_bar)
     term2 = lmbd * Te_bar ** (3 / 2) * (2 / (1 - sigma) + np.log((1 - sigma) * np.sqrt(M_bar / (2 * np.pi))))
-
+    term1 = alpha * f_iz * f_epsilon**(-1/2)
+    
     return numerateur / denominateur, term1, term2
 
 
@@ -210,7 +212,7 @@ def RHS_Anna_HET(z_bar, y):
     
     return dy
 
-#z_eval = np.linspace(0, 1, 1000)
+# z_eval = np.linspace(0, 1, 1000)
 # sol = solve_ivp(RHS_Anna_HET, [0, 1], [Gamma_0_bar, G_0_bar], method='RK45', rtol=1e-7, atol=[1e-7, 1e-7]) #solution of the system of ODEs with initial conditions Gamma_0 and G_0
 sol = solve_ivp(RHS_Anna_HET, [0, 1], [Gamma_0_bar, G_0_bar], method='LSODA', rtol=1e-7, atol=[1e-7, 1e-7]) #solution of the system of ODEs with initial conditions Gamma_0 and G_0
 z_bar, Y = sol.t, sol.y #z is the vector of the distances along the channel, Y is the matrix of the unknowns
@@ -218,7 +220,7 @@ z_bar, Y = sol.t, sol.y #z is the vector of the distances along the channel, Y i
 z_bar_array = np.array(z_bar_array)
 T_bar_array = np.array(T_bar_array)*E_iz
 
-
+print('omega = ', F_Te_terms(6.78/E_iz, 0, G_0_bar, Gamma_0_bar)[1])
 
 
 #plot the solution
@@ -406,12 +408,12 @@ def plot_fluxes(z_bar, vng, vni, color_g, color_i):
     plt.gca().tick_params(labelsize=14)
 
 # plt.figure()
-plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
+#plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
 # # plt.show()
 #
 
-Te_pascal = np.loadtxt("T_e_pascal.txt")
-x_axis = np.loadtxt("x_pascal.txt")
+Te_pascal = np.loadtxt("T_e_pascal_200.txt")
+x_axis = np.loadtxt("x_pascal_200.txt")
 
 
 plt.figure()
@@ -419,20 +421,20 @@ plot_electron_temperature(z_bar, Te_end, 'black')
 plt.axhline(y=(sigma_scl / .207) ** (1 / .549), color='g', linestyle='--', label='$T_{scl}$')
 plt.plot(x_axis, Te_pascal, label='Pascal', color='r')
 plt.legend()
-# # plt.show()
-#
-plt.figure()
-plot_ion_velocity(z_bar, u_i, 'red')
-# plt.show()
+plt.show()
 #
 # plt.figure()
-plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
+# plot_ion_velocity(z_bar, u_i, 'red')
 # # plt.show()
-#
-plt.figure()
-plot_magnetic_field(z_bar, BB)
-# # plt.show()
-#
-plt.figure()
-plot_fluxes(z_bar, vng, vni, 'blue', 'red')
-plt.show()
+# #
+# # plt.figure()
+# plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
+# # # plt.show()
+# #
+# plt.figure()
+# plot_magnetic_field(z_bar, BB)
+# # # plt.show()
+# #
+# plt.figure()
+# plot_fluxes(z_bar, vng, vni, 'blue', 'red')
+# plt.show()

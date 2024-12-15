@@ -1,11 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from scipy.optimize import minimize_scalar
-import sys
 from scipy.constants import elementary_charge, electron_mass, Boltzmann, proton_mass
+import matplotlib.pyplot as plt
 import Plots as plt_hall
-
 
 # 1D model of a Hall thruster in xenon and krypton
 
@@ -14,7 +11,7 @@ import Plots as plt_hall
 ee = elementary_charge
 m_e = electron_mass
 k_B = Boltzmann
-T_g = 700 # noter la temperature du gaz
+T_g = 500 # noter la temperature du gaz
 
 # Engineering inputs
 B_max = 200e-4  # Bmax in tesla
@@ -110,7 +107,7 @@ def F_Te(Temp, dist, Gb, Gammab):
     
     #(32) the unknown is Te
     numerateur = beta * f_ce**2 * Gb**2 * (1 - Gammab)**2
-    denominateur = Gammab**4 * (f_m*(1 - I_bar * Gammab) + gamma * f_ce)
+    denominateur = Gammab**4 * (f_m * (1 - I_bar * Gammab) + gamma * f_ce)
     term1 = alpha * f_iz * f_epsilon * (1 - I_bar * Gammab)
     term2 = lmbd * Temp**(3/2)*(2/(1 - sigma) + np.log((1 - sigma)*np.sqrt(M_bar/(2*np.pi))))
 
@@ -191,7 +188,7 @@ Gamma_bar, G_bar = Y[0, :], Y[1, :] # Gamma and G are the vectors of the unknown
 
 def u_i(Gammab, Gb):
     '''This function calculates the ion velocity'''    
-    u_i = v_star * Gammab / Gb
+    u_i = v_star * Gb / Gammab
     return u_i
 
 def n_i(Gammab, Gb):
@@ -203,6 +200,7 @@ def n_g(Gammab):
     '''This function calculates the neutral density'''
     n_g = (Gamma_m - Gammab * Gamma_d) / v_g # (15) neutral density
     return n_g
+print("ni", n_i(Gamma_bar, G_bar))
 
 vng = n_g(Gamma_bar) * v_g
 vni = n_i(Gamma_bar, G_bar) * u_i(Gamma_bar, G_bar)
@@ -212,15 +210,17 @@ f_ce = np.exp(-C_mag * (z_bar - 1)**2) # radial magnetic field profile
 BB = B_max * f_ce # (29) magnetic field
 omega_ce = ee * BB / m_e # electron cyclotron frequency
 
-def Ez(Gamma_bar, G_bar):
+def Ez(Gammab, Gb):
     '''This function calculates the electric field'''
-    nu_eff = Km_star * n_g(Gamma_bar) + delta_anom * omega_ce # (6) effective collision frequency
+    nu_eff = Km_star * n_g(Gammab) + delta_anom * omega_ce # (6) effective collision frequency
     mu_eff = ee * nu_eff / (m_e * omega_ce**2) # (16) effective mobility
-    Ez = Gamma_d * (1 - Gamma_bar) / (n_i(Gamma_bar, G_bar) * mu_eff) # (17) electric field
+    Ez = Gamma_d * (1 - Gammab) / (n_i(Gammab, Gb) * mu_eff) # (17) electric field
     return Ez
 
-Phi_d_bar = np.trapz((beta * f_ce**2 * G_bar*(1-Gamma_bar))/(Gamma_bar**2*(f_m*(1-I_bar*Gamma_bar) + gamma*f_ce)), z_bar) # (36) normalized discharge voltage
-P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
+def P_d(Gammab, Gb):
+    '''This function calculates the normalized discharge voltage'''
+    Phi_d_bar = np.trapz((beta * f_ce**2 * Gb*(1-Gammab))/(Gammab**2*(f_m*(1-I_bar*Gammab) + gamma*f_ce)), z_bar) # (36) normalized discharge voltage
+    P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
 
 # Recalculation of Te
 Te_bar_end = np.zeros(N0)
@@ -231,9 +231,9 @@ Te_end = Te_bar_end * E_iz
 
 K_iz = K_iz_0 * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
 
-def S_iz(Gamma_bar, G_bar):
+def S_iz(Gammab, Gb):
     '''This function calculates the ionization source'''
-    S_iz = n_i(Gamma_bar, G_bar) * n_g(Gamma_bar) * K_iz
+    S_iz = n_i(Gammab, Gb) * n_g(Gammab) * K_iz
     return S_iz
 
 # Engineering outputs
@@ -274,34 +274,24 @@ def power_efficiency(Gamma_bar, G_bar):
     power_efficiency = thrust_power(Gamma_bar, G_bar) / P_d
     return power_efficiency
 
-z = z_bar * L_ch
-np.savetxt("values_anna.csv", np.column_stack((z, z_bar, n_i(Gamma_bar, G_bar), n_g(Gamma_bar), Te_end, u_i(Gamma_bar, G_bar), Ez(Gamma_bar, G_bar), S_iz(Gamma_bar, G_bar), BB, n_g(Gamma_bar) * v_g, n_i(Gamma_bar, G_bar) * u_i(Gamma_bar, G_bar))), delimiter=',')
-np.savetxt("values_anna_Te.csv", np.column_stack((z_bar_array, Te_array)), delimiter=',')
-
 #################### PLOTS ######################
+'''For now we let the plots in this file but they will incorporated in the interface'''
 
+plt.figure()
 plt_hall.plot_densities(z_bar, n_i, n_g, Gamma_bar, G_bar, "n_i", "n_g", 'red', 'blue')
-plt.show()
 
-# Te_pascal = np.loadtxt("T_e_pascal_200.txt")
-# x_axis = np.loadtxt("x_pascal_200.txt")
 plt.figure()
 plt_hall.plot_electron_temperature(z_bar, Te_end, 'black')
-#plt.axhline(y=(sigma_scl / .207) ** (1 / .549), color='g', linestyle='--', label='$T_{scl}$')
-# plt.plot(x_axis, Te_pascal, label='Pascal', color='r')
-#plt.legend()
-plt.show()
 
 plt.figure()
 plt_hall.plot_ion_velocity(z_bar, u_i, Gamma_bar, G_bar,'red')
-plt.show()
 
 plt_hall.plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, Gamma_bar, G_bar, "Ez"," S_iz",'black', 'green')
-plt.show()
 
 plt.figure()
 plt_hall.plot_magnetic_field(z_bar, BB)
 
 plt.figure()
 plt_hall.plot_fluxes(z_bar, vng, vni, 'blue', 'red')
+
 plt.show()

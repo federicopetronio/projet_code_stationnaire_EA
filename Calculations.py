@@ -200,7 +200,6 @@ def n_g(Gammab):
     '''This function calculates the neutral density'''
     n_g = (Gamma_m - Gammab * Gamma_d) / v_g # (15) neutral density
     return n_g
-print("ni", n_i(Gamma_bar, G_bar))
 
 vng = n_g(Gamma_bar) * v_g
 vni = n_i(Gamma_bar, G_bar) * u_i(Gamma_bar, G_bar)
@@ -219,7 +218,7 @@ def Ez(Gammab, Gb):
 
 def P_d(Gammab, Gb):
     '''This function calculates the normalized discharge voltage'''
-    Phi_d_bar = np.trapz((beta * f_ce**2 * Gb*(1-Gammab))/(Gammab**2*(f_m*(1-I_bar*Gammab) + gamma*f_ce)), z_bar) # (36) normalized discharge voltage
+    Phi_d_bar = np.trapz((beta * f_ce**2 * Gb*(1 - Gammab))/(Gammab**2 * (f_m * (1 - I_bar * Gammab) + gamma * f_ce)), z_bar) # (36) normalized discharge voltage
     P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
 
 # Recalculation of Te
@@ -238,7 +237,7 @@ def S_iz(Gammab, Gb):
 
 # Engineering outputs
 
-def mass_utilization(Gamma_bar, I_bar):
+def mass_utilization(Gamma_bar):
     '''This function calculates the mass utilization
     Gamma_L = Gamma_bar at the end of the channel, I_bar = normalized current'''
     Gamma_L = Gamma_bar[N0 - 1]
@@ -277,7 +276,6 @@ def power_efficiency(Gamma_bar, G_bar):
 #################### PLOTS ######################
 '''For now we let the plots in this file but they will incorporated in the interface'''
 
-plt.figure()
 plt_hall.plot_densities(z_bar, n_i, n_g, Gamma_bar, G_bar, "n_i", "n_g", 'red', 'blue')
 
 plt.figure()

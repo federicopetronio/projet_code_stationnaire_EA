@@ -1,5 +1,5 @@
-import test
-from test import test_run
+import physics
+from physics import test_run
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter

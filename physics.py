@@ -4,10 +4,9 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import minimize_scalar
 
 # 1D model of a Hall thruster in xenon and krypton
-# Trevor Lafleur and Pascal Chabert, June 2024
+# Trevor Lafleur and Pascal Chabert, June 2024     
 
 global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
-
 
 e = 1.6e-19
 m_e = 9e-31
@@ -26,7 +25,7 @@ Q_mgs = 5  # Mass flow rate in mg/s
 # Model input is a normalized current
 I_bar = 1.34
 
-def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
+def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False):
 
     if thruster == 'PPSX00':
         L_ch = 0.024  # channel length in meters
@@ -176,5 +175,62 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant):
     x_Emax = x[i_Emax]
     Te_max, i_Temax = np.max(T_e), np.argmax(T_e)
     x_Temax = x[i_Temax]
+
+    if plotting:
+        plt.figure(1)
+        plt.plot(x, n_i, 'k', linewidth=1)
+        plt.twinx()
+        plt.plot(x, n_g, 'r', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x$ (m)', fontsize=14)
+        plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
+        plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/densities.pdf')
+
+        plt.figure(2)
+        plt.plot(x, T_e, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.ylim([0, 25])
+        plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+        plt.ylabel('$T_e$ (V)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/Te.pdf')
+
+        plt.figure(3)
+        plt.plot(x, u_i, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.ylabel('$u_i$ (m/s)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/ion-velocity.pdf')
+
+        plt.figure(4)
+        plt.plot(x, E_x, 'k', linewidth=1)
+        plt.twinx()
+        plt.plot(x, S_iz, 'r', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x$(m)', fontsize=14)
+        plt.ylabel('$E_x$ (V/m)', fontsize=14)
+        plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/ExSiz.pdf')
+
+        plt.figure(6)
+        plt.plot(x, BB * 1e4, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+        plt.ylabel('$B$ (Gauss)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/Bfield.pdf')
+
+        plt.figure(8)
+        plt.plot(x, n_g * v_g, 'b', label='Neutrals')
+        plt.plot(x, n_i * u_i, 'r', label='Ions')
+        plt.xlim([0, 1])
+        plt.xlabel('$x$(m)', fontsize=14)
+        plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
+        plt.legend(fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.savefig('profiles/Fluxes.pdf')
 
     return ([I_sp, thrust_mN])

@@ -1,5 +1,5 @@
-import test
-from test import test_run
+import physics
+from physics import test_run
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
@@ -76,37 +76,40 @@ def run_two_targets(B_max_values, Q_mgs_values, beta_mag, I_bar, thruster, prope
     plt.tight_layout()
     plt.show()
 
-    return B, Q
-
-
-
-from scipy.interpolate import griddata
-
-def find_isobars_intersection(M_A, M_B, Q_mgs_values, B_max_values, target_A, target_B):
-    # Créer une grille pour l'interpolation
-    Q_mgs_grid, B_max_grid = np.meshgrid(Q_mgs_values, B_max_values)
-
-    # Trouver les valeurs des isobares pour A et B
-    isobar_A = griddata((Q_mgs_grid.flatten(), B_max_grid.flatten()), M_A.flatten(), (Q_mgs_grid, B_max_grid), method='linear')
-    isobar_B = griddata((Q_mgs_grid.flatten(), B_max_grid.flatten()), M_B.flatten(), (Q_mgs_grid, B_max_grid), method='linear')
-
-    # Trouver les indices des isobares
-    diff_A = np.abs(isobar_A - float(target_A))
-    diff_B = np.abs(isobar_B - float(target_B))
-    
-    # Créer une matrice des différences
-    total_diff = diff_A + diff_B
-
-    # Trouver les indices du minimum dans la matrice des différences
-    min_index = np.unravel_index(np.argmin(total_diff), total_diff.shape)
-
-    # Obtenir les coordonnées des isobares
-    Q_optimal = Q_mgs_grid[min_index]
-    B_optimal = B_max_grid[min_index]
-
     return Q_optimal, B_optimal
 
 
+
+import numpy as np
+from scipy.interpolate import griddata
+from scipy.optimize import fsolve
+
+def find_isobars_intersection(M_A, M_B, Q_mgs_values, B_max_values, target_A, target_B):
+    # Create a grid for interpolation
+    Q_mgs_grid, B_max_grid = np.meshgrid(Q_mgs_values, B_max_values)
+
+    # Define the function to find the intersection
+    def intersection_func(x):
+        Q, B = x
+        A_value = griddata((Q_mgs_grid.flatten(), B_max_grid.flatten()), M_A.flatten(), (Q, B), method='linear')
+        B_value = griddata((Q_mgs_grid.flatten(), B_max_grid.flatten()), M_B.flatten(), (Q, B), method='linear')
+        
+        # Handle potential None values
+        if A_value is None or B_value is None:
+            return [float('inf'), float('inf')]  # Return a large number if not found
+        
+        return [float(A_value) - float(target_A), float(B_value) - float(target_B)]
+
+    # Initial guess: take a point near the grid center or a known approximate intersection
+    initial_guess = [np.mean(Q_mgs_values), np.mean(B_max_values)]
+
+    # Use fsolve to find the intersection point
+    Q_optimal, B_optimal = fsolve(intersection_func, initial_guess)
+
+    return Q_optimal, B_optimal
+
+# Example usage (with your actual data for M_A, M_B, Q_mgs_values, and B_max_values)
+# Q, B = find_isobars_intersection(M_A, M_B, Q_mgs_values, B_max_values, target_A, target_B)
 
 
  

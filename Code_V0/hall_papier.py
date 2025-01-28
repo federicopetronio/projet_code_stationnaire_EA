@@ -156,7 +156,7 @@ def F_Te_terms(Te_bar, z_bar, G_bar, Gamma_bar):
     denominateur = Gamma_bar ** 4 * (f_m * (1 - I_bar * Gamma_bar) + gamma * f_ce)
     term1 = alpha * f_iz * f_epsilon * (1 - I_bar * Gamma_bar)
     term2 = lmbd * Te_bar ** (3 / 2) * (2 / (1 - sigma) + np.log((1 - sigma) * np.sqrt(M_bar / (2 * np.pi))))
-    term1 = alpha * f_iz * f_epsilon**(-1/2)
+    #term1 = alpha * f_iz * f_epsilon**(-1/2)
     
     return numerateur / denominateur, term1, term2
 
@@ -287,7 +287,7 @@ print("Thrust to power ratio: "+ str(thrust_to_power_mN_kW)+ " mN/kW")
 print("Time: "+ str(ti.time() - start_time) + " s")
 #Te_end = np.zeros(N0)
 z = z_bar * L_ch
-np.savetxt("values_anna.csv", np.column_stack((z, z_bar, n_i, n_g, Te_end, u_i, Ez, S_iz, BB, n_g * v_g, n_i * u_i)), delimiter=',')
+np.savetxt("values_anna.csv", np.column_stack((z_bar, n_i, n_g, Te_end, u_i, Ez, S_iz, BB, n_g * v_g, n_i * u_i)), delimiter=',')
 np.savetxt("values_anna_Te.csv", np.column_stack((z_bar_array, T_bar_array)), delimiter=',')
 
 # Plotting
@@ -315,6 +315,7 @@ np.savetxt("values_anna_Te.csv", np.column_stack((z_bar_array, T_bar_array)), de
 # plt.legend()
 # plt.show()
 
+print("ni", n_i)
 
 def plot_densities(z_bar, n_i, n_g, label_i, label_g, color_i, color_g,ax1=None, ax2=None):
     if ax1 is None or ax2 is None:  # Si les axes ne sont pas fournis, créez-en
@@ -407,34 +408,36 @@ def plot_fluxes(z_bar, vng, vni, color_g, color_i):
     plt.title('Mass fluxes')
     plt.gca().tick_params(labelsize=14)
 
-# plt.figure()
-#plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
-# # plt.show()
-#
-
-Te_pascal = np.loadtxt("T_e_pascal_200.txt")
-x_axis = np.loadtxt("x_pascal_200.txt")
-
-
 plt.figure()
-plot_electron_temperature(z_bar, Te_end, 'black')
-plt.axhline(y=(sigma_scl / .207) ** (1 / .549), color='g', linestyle='--', label='$T_{scl}$')
-plt.plot(x_axis, Te_pascal, label='Pascal', color='r')
-plt.legend()
+plot_densities(z_bar, n_i, n_g, "n_i", "n_g", 'red', 'blue')
 plt.show()
 #
+
+#Te_pascal = np.loadtxt("T_e_pascal_200.txt")
+#x_axis = np.loadtxt("x_pascal_200.txt")
+
+data_anna2 = np.loadtxt("values_anna_Te.csv", delimiter=',')
+z_bar_array_anna, T_array_anna = data_anna2.T
+
+# plt.figure()
+# plot_electron_temperature(z_bar, Te_end, 'black')
+# plt.axhline(y=(sigma_scl / .207) ** (1 / .549), color='g', linestyle='--', label='$T_{scl}$')
+# plt.plot(z_bar_array_anna, T_array_anna, label='Pascal', color='r')
+# plt.legend()
+# plt.show()
+
 # plt.figure()
 # plot_ion_velocity(z_bar, u_i, 'red')
 # # plt.show()
 # #
-# # plt.figure()
-# plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
-# # # plt.show()
+plt.figure()
+plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, "Ez"," S_iz",'black', 'green')
+plt.show()
 # #
 # plt.figure()
 # plot_magnetic_field(z_bar, BB)
-# # # plt.show()
-# #
+# plt.show()
+#
 # plt.figure()
 # plot_fluxes(z_bar, vng, vni, 'blue', 'red')
 # plt.show()

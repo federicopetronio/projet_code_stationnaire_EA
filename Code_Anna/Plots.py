@@ -3,19 +3,19 @@ import matplotlib.pyplot as plt
 
 ################ Plot functions ################
 
-def plot_densities(z_bar, n_i, n_g, Gammab, Gb, label_i, label_g, color_i, color_g,ax1=None, ax2=None):
+def plot_densities(z_bar, n_i, n_g, label_i, label_g, color_i, color_g, ax1=None, ax2=None):
     if ax1 is None or ax2 is None:  # Si les axes ne sont pas fournis, créez-en
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
     
     # Tracé des densités ioniques sur l'axe principal
-    line1, = ax1.plot(z_bar, n_i(Gammab, Gb), color=color_i, linewidth=1, label=label_i)
+    line1, = ax1.plot(z_bar, n_i), color=color_i, linewidth=1, label=label_i
     ax1.set_xlabel(r'$\overline{z}$', fontsize=14)
     ax1.set_ylabel('$n_i$ (m$^{-3}$)', fontsize=14, color=color_i)
     ax1.tick_params(axis='y', labelcolor=color_i)
     
     # Tracé des densités neutres sur l'axe secondaire
-    line2, = ax2.plot(z_bar, n_g(Gammab), color=color_g, linewidth=1, label=label_g)
+    line2, = ax2.plot(z_bar, n_g, color=color_g, linewidth=1, label=label_g)
     ax2.set_ylabel('$n_g$ (m$^{-3}$)', fontsize=14, color=color_g)
     ax2.tick_params(axis='y', labelcolor=color_g)
     
@@ -37,27 +37,27 @@ def plot_electron_temperature(z_bar, Temp, color):
     plt.gca().tick_params(labelsize=14)
     plt.title('Electron temperature')
 
-def plot_ion_velocity(z_bar, u_i, Gammab, Gb, color):
-    plt.plot(z_bar, u_i(Gammab, Gb), linewidth=1, color = color)
+def plot_ion_velocity(z_bar, u_i, color):
+    plt.plot(z_bar, u_i, linewidth=1, color = color)
     plt.xlim([0, 1])
     plt.xlabel(r'$\overline{z}$', fontsize=14)
     plt.ylabel('$u_i$ (m/s)', fontsize=14)
     plt.gca().tick_params(labelsize=14)
     plt.title('Ion velocity')
 
-def plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, Gammab, Gb, label_ez, label_siz, color_ez, color_siz, ax1=None, ax2=None):
+def plot_electric_field_and_ionization_source(z_bar, Ez, S_iz, label_ez, label_siz, color_ez, color_siz, ax1=None, ax2=None):
     if ax1 is None or ax2 is None:  
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
     
     # trace electric field on the main axis
-    line1, = ax1.plot(z_bar, Ez(Gammab, Gb), color=color_ez, linewidth=1, label=label_ez)
+    line1, = ax1.plot(z_bar, Ez, color=color_ez, linewidth=1, label=label_ez)
     ax1.set_xlabel(r'$\overline{z}$', fontsize=14)
     ax1.set_ylabel('$E_z$ (V/m)', fontsize=14, color=color_ez)
     ax1.tick_params(axis='y', labelcolor=color_ez)
     
     # trace ionization
-    line2, = ax2.plot(z_bar, S_iz(Gammab, Gb), color=color_siz, linewidth=1, label=label_siz)
+    line2, = ax2.plot(z_bar, S_iz, color=color_siz, linewidth=1, label=label_siz)
     ax2.set_ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14, color=color_siz)
     ax2.tick_params(axis='y', labelcolor=color_siz)
     

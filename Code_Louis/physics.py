@@ -4,10 +4,9 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import minimize_scalar
 
 # 1D model of a Hall thruster in xenon and krypton
-# Trevor Lafleur and Pascal Chabert, June 2024
+# Trevor Lafleur and Pascal Chabert, June 2024     
 
 global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
-
 
 e = 1.6e-19
 m_e = 9e-31
@@ -26,7 +25,30 @@ Q_mgs = 5  # Mass flow rate in mg/s
 # Model input is a normalized current
 I_bar = 1.34
 
-def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
+def test_run_(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=False):
+
+    print("Calcul Ancienne version")
+    if thruster == 'PPSX00':
+        L_ch = 0.024  # channel length in meters
+        d_ave = 0.056  # Thruster average diameter
+        Delta_r = 0.015  # channel gap
+    elif thruster == 'PPS1350':
+        L_ch = 0.029  # channel length in meters
+        d_ave = 0.0845  # Thruster average diameter
+        Delta_r = 0.0155  # channel gap
+    elif thruster == 'PPS5000':
+        L_ch = 0.033  # channel length in meters
+        d_ave = 0.1275  # Thruster average diameter
+        Delta_r = 0.0225  # channel gap
+    elif thruster == 'PPSX000_Hi':
+        L_ch = 0.032  # channel length in meters
+        d_ave = 0.1365  # Thruster average diameter
+        Delta_r = 0.0135  # channel gap
+    elif thruster == 'PPS20k':
+        L_ch = 0.071  # channel length in meters
+        d_ave = 0.2700  # Thruster average diameter
+        Delta_r = 0.05  # channel gap
+
     if propellant == 'xenon':
         M = 131 * 1.67e-27
         v_g = np.sqrt(k_B * T_g / M)
@@ -36,6 +58,7 @@ def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
         E_exc = 11.6
         kel = 2.5e-13
         delta_anom = 3.3e-3  # anomalous transport
+
     elif propellant == 'krypton':
         M = 83.8 * 1.67e-27
         v_g = np.sqrt(k_B * T_g / M)
@@ -73,13 +96,12 @@ def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
     g_0 = 0.1 * chi_0  # initial velocity is then v_star/10
 
     def RHS_Trevor_HET(x, y):
-        global sigma_scl, beta_mag, M, gamma_bar, E_iz, m_e, A_bar, B_bar, alpha, beta, I_bar
 
         dy = np.zeros(2)
 
         chi, g = y
 
-        f = np.exp(-beta_mag * (x - 1)**2)
+        f = magProfile(x)
         beta_bar = beta * f
         alpha_bar = alpha * f**2
 
@@ -108,7 +130,7 @@ def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
     u_i = (g / chi) * v_star
     n_i = chi * Gamma_d / u_i
     n_g = (Gamma_m - chi * Gamma_d) / v_g
-    f = np.exp(-beta_mag * (x - 1)**2)
+    f = magProfile(x)
     beta_bar = beta * f
     intB2 = np.trapz(f**2, x)
     BB = B_max * f
@@ -155,4 +177,79 @@ def test(B_max, beta_mag, Q_mgs, L_ch, d_ave, Delta_r):
     Te_max, i_Temax = np.max(T_e), np.argmax(T_e)
     x_Temax = x[i_Temax]
 
-    return (thrust_to_power_mN_kW)
+    if plotting:
+
+        plt.clf()
+
+        # First plot: n_i and n_g
+        plt.subplot(3, 2, 1)
+        plt.plot(x, n_i, 'k', linewidth=1)
+        plt.twinx()
+        plt.plot(x, n_g, 'r', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x$ (m)', fontsize=14)
+        plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
+        plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Densities")
+
+        # Second plot: T_e
+        plt.subplot(3, 2, 2)
+        plt.plot(x, T_e, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.ylim([0, 25])
+        plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+        plt.ylabel('$T_e$ (V)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Electron temperature")
+
+        # Third plot: u_i
+        plt.subplot(3, 2, 3)
+        plt.plot(x, u_i, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.ylabel('$u_i$ (m/s)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Ion velocity")
+
+        # Fourth plot: E_x and S_iz
+        plt.subplot(3, 2, 4)
+        plt.plot(x, E_x, 'k', linewidth=1)
+        plt.twinx()
+        plt.plot(x, S_iz, 'r', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x$(m)', fontsize=14)
+        plt.ylabel('$E_x$ (V/m)', fontsize=14)
+        plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Ex and Siz")
+
+        # Fifth plot: B field (scaled)
+        plt.subplot(3, 2, 5)
+        plt.plot(x, BB * 1e4, 'b', linewidth=1)
+        plt.xlim([0, 1])
+        plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
+        plt.ylabel('$B$ (Gauss)', fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Magnetic field profile")
+
+        # Sixth plot: Fluxes (Neutrals and Ions)
+        plt.subplot(3, 2, 6)
+        plt.plot(x, n_g * v_g, 'b', label='Neutrals')
+        plt.plot(x, n_i * u_i, 'r', label='Ions')
+        plt.xlim([0, 1])
+        plt.xlabel('$x$(m)', fontsize=14)
+        plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
+        plt.legend(fontsize=14)
+        plt.gca().tick_params(labelsize=14)
+        plt.title("Fluxes")
+
+        # Adjust layout to avoid overlapping
+        plt.tight_layout()
+
+        # Save the entire figure
+        plt.savefig('profiles/all_plots.pdf')
+
+        # Show the figure
+        plt.show()
+
+    return ([I_sp, thrust_mN, thrust_power, mass_utilization, thrust_to_power_mN_kW, total_efficiency, elec_efficency])

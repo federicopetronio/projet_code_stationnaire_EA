@@ -17,17 +17,18 @@ k_B = Boltzmann
 T_g = 500 # noter la temperature du gaz
 
 # Engineering inputs
-B_max = 0.0186  # Bmax in tesla
+B_max = 0.02 # Bmax in tesla
 C_mag = 4  # Profile factor
-Q_mgs = 2.0  # Mass flow rate in mg/s
+Q_mgs = 5.8  # Mass flow rate in mg/s
 
 ##################### THRUSTER #####################
 # choose thruster and propellant
-thruster = 'PPSX00'
+thruster = 'PPS1350'
 propellant = 'xenon'
 
 # Model input is a normalized current
-I_bar = 1.34
+I_bar = 1.2
+Path = '/Users/annamasset/Desktop/X/Cours/3A/EA/rapport/plots_I_1.1_B2.pdf'
 
 if thruster == 'PPSX00':
     L_ch = 0.024  # channel length in meters
@@ -205,23 +206,6 @@ with open('//Users/annamasset/Desktop/X/Cours/3A/EA/code_statinnaire/Fichiers_CS
                     
 K_iz = interp1d(K_iz_x, K_iz_y, fill_value='extrapolate')
 
-# def verif_interpol(x, function, x_list, y_list):
-#     if x < x_list[0] or x > x_list[-1]:  # Si x est hors de la plage
-#         print(f"Valeur {x} hors de la plage d'interpolation. Mise à jour...")
-#         # Ajouter x dans la liste des abscisses
-#         x_list.append(x)
-#         x_list.sort()  # Trier après ajout
-#         # Ajouter une valeur par défaut (par exemple, 0 ou extrapoler depuis la fonction existante)
-#         if x < x_list[0]:
-#             y_list.insert(0, function(x))  # Ajouter au début
-#         elif x > x_list[-1]:
-#             y_list.append(function(x))  # Ajouter à la fin
-#         # Recréer la fonction d'interpolation
-#         return interp1d(x_list, y_list, fill_value='extrapolate')
-#     return function  # Si x est dans la plage, pas besoin de mise à jour
-
-            
-
 #################### INTEGRATION ######################
 
 # initial conditions
@@ -326,6 +310,14 @@ def power_efficiency(Gamma_bar, G_bar):
     power_efficiency = thrust_power_calcul(Gamma_bar, G_bar) / P_d(Gamma_bar, G_bar)
     return power_efficiency
 
+def voltage(Gamma_bar, G_bar):
+    '''This function calculates the voltage by integrating the electric field'''
+    E_field = Ez(Gamma_bar, G_bar)
+    voltage = np.trapz(E_field, z_bar * L_ch)
+    return voltage
+
+Voltage = voltage(Gamma_bar, G_bar)  # discharge voltage
+
 vng = n_g(Gamma_bar) * v_g
 vni = n_i(Gamma_bar, G_bar) * u_i(Gamma_bar, G_bar)
 
@@ -334,6 +326,7 @@ vni = n_i(Gamma_bar, G_bar) * u_i(Gamma_bar, G_bar)
 data = np.array([z_bar, n_i(Gamma_bar, G_bar), n_g(Gamma_bar), Te_end, u_i(Gamma_bar, G_bar), Ez(Gamma_bar, G_bar), S_iz(Gamma_bar, G_bar), BB, vng, vni])
 np.savetxt("values_anna.csv", data.T, delimiter=',')
 
+print('voltage = ', Voltage, 'V')
 
 #################### PLOTS ######################
 '''For now we let the plots in this file but they will incorporated in the interface'''
@@ -354,4 +347,75 @@ np.savetxt("values_anna.csv", data.T, delimiter=',')
 # plt.figure()
 # plt_hall.plot_fluxes(z_bar, vng, vni, 'blue', 'red')
 
-# plt.show()
+plt.clf()
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 10))  # Create a grid of subplots
+
+# Electron temperature
+axes[0, 0].plot(z_bar_array, Te_array, linewidth=1, color="blue")
+axes[0, 0].set_xlim([0, 1])
+axes[0, 0].set_xlabel(r'$\overline{z}$', fontsize=14)
+axes[0, 0].set_ylabel('$T_e$ (V)', fontsize=14)
+axes[0, 0].tick_params(labelsize=14)
+axes[0, 0].set_title('Electron temperature', fontsize=14)
+
+# Ion velocity
+axes[0, 1].plot(z_bar, u_i(Gamma_bar, G_bar), linewidth=1, color="blue")
+axes[0, 1].set_xlim([0, 1])
+axes[0, 1].set_xlabel(r'$\overline{z}$', fontsize=14)
+axes[0, 1].set_ylabel('$u_i$ (m/s)', fontsize=14)
+axes[0, 1].tick_params(labelsize=14)
+axes[0, 1].set_title('Ion velocity', fontsize=14)
+
+# Magnetic field
+axes[1, 0].plot(z_bar, BB * 1e4, 'b', linewidth=1)
+axes[1, 0].set_xlim([0, 1])
+axes[1, 0].set_xlabel(r'$\overline{z}$', fontsize=14)
+axes[1, 0].set_ylabel('$B$ (Gauss)', fontsize=14)
+axes[1, 0].tick_params(labelsize=14)
+axes[1, 0].set_title('Magnetic field', fontsize=14)
+
+# Mass fluxes
+axes[1, 1].plot(z_bar, vng, label='Neutrals', color="green")
+axes[1, 1].plot(z_bar, vni, label='Ions', color="red")
+axes[1, 1].set_xlim([0, 1])
+axes[1, 1].set_xlabel(r'$\overline{z}$', fontsize=14)
+axes[1, 1].set_ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
+axes[1, 1].set_title('Mass fluxes', fontsize=14)
+axes[1, 1].tick_params(labelsize=14)
+
+# Move legend outside
+axes[1, 1].legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
+
+# Ion and Neutral Densities
+ax1 = axes[2, 0]
+ax2 = ax1.twinx()
+line1, = ax1.plot(z_bar, n_i(Gamma_bar, G_bar), color="green", linewidth=1)
+line2, = ax2.plot(z_bar, n_g(Gamma_bar), color="red", linewidth=1)
+ax1.set_xlabel(r'$\overline{z}$', fontsize=14)
+ax1.set_ylabel('$n_i$ (m$^{-3}$)', fontsize=14, color="green")
+ax1.tick_params(axis='y', labelcolor="green")
+ax2.set_ylabel('$n_g$ (m$^{-3}$)', fontsize=14, color="red")
+ax2.tick_params(axis='y', labelcolor="red")
+ax1.set_title('Ion and Neutral Densities', fontsize=14)
+
+# Electric field and ionization source
+ax1 = axes[2, 1]
+ax2 = ax1.twinx()
+line1, = ax1.plot(z_bar, Ez(Gamma_bar, G_bar), color="blue", linewidth=1)
+line2, = ax2.plot(z_bar, S_iz(Gamma_bar, G_bar), color="red", linewidth=1)
+ax1.set_xlabel(r'$\overline{z}$', fontsize=14)
+ax1.set_ylabel('$E_z$ (V/m)', fontsize=14, color="blue")
+ax1.tick_params(axis='y', labelcolor="blue")
+ax2.set_ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14, color="red")
+ax2.tick_params(axis='y', labelcolor="red")
+ax1.set_title('Electric field and ionization source', fontsize=14)
+
+# Global title
+plt.suptitle(f"Plots for B_max = {B_max} G and Q = {Q_mgs} mgs", fontsize=16)
+
+# Adjust layout to make room for legends
+plt.tight_layout()
+# plt.savefig(Path)
+
+plt.show()

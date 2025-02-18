@@ -14,11 +14,31 @@ def run_two_targets(B_max_values, Q_mgs_values, magProfile, I_bar, thruster, pro
 
     results = [[0 for j in range(m)] for i in range(n)]
     
+    magProfileSignature = '_'.join([str(magProfile(x)) for x in [0, 0.25, 0.5, 0.75, 1]])
+
     for i in range(n):
         for j in range(m):
-            # test_run est supposé être une fonction calculant [ISP, Thrust]
-            print(i, j)
-            results[i][j] = (test_run(B_max_values[i]/10000, magProfile, Q_mgs_values[j], I_bar, thruster, propellant)) # /10000 pour convertir en tesla
+            # Check if results are already in the file
+            with open('results.txt', 'r') as file:
+                lines = file.readlines()
+                found = False
+                for line in lines:
+                    t, p, i_bar, q, b, beta, result = line.strip().split('| ')
+                    if [t, p, float(i_bar), float(q), float(b), beta] == [thruster, propellant, I_bar, Q_mgs_values[j], B_max_values[i], magProfileSignature]:
+                        results[i][j] = eval(result)
+                        found = True
+                        print("Déjà calculé")
+                        break
+
+            if not found:
+                try:
+                    results[i][j] = test_run(B_max_values[i]/10000, magProfile, Q_mgs_values[j], I_bar, thruster, propellant)
+                except Exception as e:
+                    results[i][j] = [0, 0, 0, 0, 0, 0, 0]
+                    print("Erreur, ", e)
+                print("Calcul")
+                with open('results.txt', 'a') as file:
+                    file.write(f"{thruster}| {propellant}| {I_bar}| {Q_mgs_values[j]}| {B_max_values[i]}| {magProfileSignature}| {results[i][j]}\n")
 
     print(results)
 

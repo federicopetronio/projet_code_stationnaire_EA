@@ -11,11 +11,12 @@ from two_targets import run_two_targets
 #from physics import test_run
 from Calculations import test_run
 from RangeSlider.RangeSlider import RangeSliderH
+import customtkinter
 
 # Create the main window
 root = tk.Tk()
 root.title("COMHET - Operational optimizer")
-root.geometry("920x725")  # Increased height for new section
+root.geometry("850x750")  # Increased height for new section
 
 # Set a nice font and style for labels and entries
 style = ttk.Style()
@@ -23,35 +24,40 @@ style.configure("TLabel", font=("Arial", 12))
 style.configure("TEntry", font=("Arial", 12))
 style.configure("TButton", font=("Arial", 12, "bold"), foreground="white", background="blue")
 style.configure("TCombobox", font=("Arial", 12))
+root.configure(bg="#f0f0f0")
 
 file_path = ""
 
-def calculate_for_one_target(thrust, propellant, magProfile, var1, val1, B_max_min, B_max_max, Q_mgs_min, Q_mgs_max, precision):
+def calculate_for_one_target(thrust, propellant, magProfile, var1, val1, B_max_min, B_max_max, Q_mgs_min, Q_mgs_max, precision, voltage):
     print(precision)
     B_length = int(precision[0])
     Q_length = int(precision[1])
-    B_max_values = [B_max_min + ((B_max_max-B_max_min)/B_length)*i for i in range(B_length)]
-    Q_mgs_values = [Q_mgs_min + ((Q_mgs_max-Q_mgs_min)/Q_length)*i for i in range(Q_length)]
 
-    run_one_target(B_max_values, Q_mgs_values, magProfile, 1.34, thrust, propellant, var1, val1)
+    B_max_values = [10*round((B_max_min + ((B_max_max-B_max_min)/B_length)*i)/10, 0) for i in range(B_length)]
+    Q_mgs_values = [round(Q_mgs_min + ((Q_mgs_max-Q_mgs_min)/Q_length)*i, 1) for i in range(Q_length)]
+
+    print(B_max_values)
+    print(Q_mgs_values)
+
+    run_one_target(B_max_values, Q_mgs_values, magProfile, 1.2, thrust, propellant, voltage, var1, val1)
     return "Consultez les graphiques"
 
 def calculate_for_two_targets(thrust, propellant, magProfile, var1, val1, var2, val2, B_max_min, B_max_max, Q_mgs_min, Q_mgs_max, precision):
     B_length = int(precision[0])
     Q_length = int(precision[1])
-    B_max_values = [B_max_min + ((B_max_max-B_max_min)/B_length)*i for i in range(B_length)]
-    Q_mgs_values = [Q_mgs_min + ((Q_mgs_max-Q_mgs_min)/Q_length)*i for i in range(Q_length)]
+    B_max_values = [10*round((B_max_min + ((B_max_max-B_max_min)/B_length)*i)/10, 0) for i in range(B_length)]
+    Q_mgs_values = [round(Q_mgs_min + ((Q_mgs_max-Q_mgs_min)/Q_length)*i, 1) for i in range(Q_length)]
 
-    B, Q = run_two_targets(B_max_values, Q_mgs_values, magProfile, 1.34, thrust, propellant, var1, val1, var2, val2)
+    B, Q = run_two_targets(B_max_values, Q_mgs_values, magProfile, 1.2, thrust, propellant, var1, val1, var2, val2)
     return B, Q
 
 # Function to mimic a long-running calculation
-def perform_calculation(thrust, propellant, profile_factor, b_max_min, b_max_max, q_min, q_max, precision, var1=None, val1=None, var2=None, val2=None): 
+def perform_calculation(thrust, propellant, profile_factor, b_max_min, b_max_max, q_min, q_max, precision, voltage, var1=None, val1=None, var2=None, val2=None): 
     # Show progress bar in the output frame
     output_frame.grid(row=4, column=0, columnspan=2)  # Show the output panel using grid
     output_b_value.grid_forget()  # Hide B and Q labels initially
     output_q_value.grid_forget()
-    progress_bar.grid(row=0, column=0, columnspan=2)  # Show the progress bar using grid
+    progress_bar.grid(row=0, column=0, columnspan=2, pady=0)  # Show the progress bar using grid
     
     print(file_path)
     if file_path == "":
@@ -72,10 +78,10 @@ def perform_calculation(thrust, propellant, profile_factor, b_max_min, b_max_max
         output_q_value.config(text=f"Q: {int(Q)} mg/s")
         output_b_value.grid(row=1, column=0)
         output_q_value.grid(row=1, column=1)
-        test_run(B, profile_factor, Q, 1.34, thrust, propellant, plotting=False)
+        test_run(B, profile_factor, Q, 1.2, thrust, propellant, plotting=False)
 
     else:  # Only the first target variable is filled
-        calculate_for_one_target(thrust, propellant, magProfile, var1, val1, b_max_min, b_max_max, q_min, q_max, precision)
+        calculate_for_one_target(thrust, propellant, magProfile, var1, val1, b_max_min, b_max_max, q_min, q_max, precision, voltage)
 
     # After calculation is done, display the result
     progress_bar.stop()  # Stop progress bar animation
@@ -91,6 +97,7 @@ def run_command():
     val1 = value_1_entry.get()
     var2 = variable_2_dropdown.get()
     val2 = value_2_entry.get()
+    voltage = voltage_entry.get()
 
     # Get the B and Q min/max values from the scales
     b_min = b_range_slider.getValues()[0]
@@ -103,7 +110,7 @@ def run_command():
     # Run the calculation in a separate thread
     calculation_thread = threading.Thread(
         target=perform_calculation, 
-        args=(thrust, propellant, profile_factor, b_min, b_max, q_min, q_max, precision, var1, val1, var2, val2)
+        args=(thrust, propellant, profile_factor, b_min, b_max, q_min, q_max, precision, voltage, var1, val1, var2, val2)
     )
     calculation_thread.start()
 
@@ -112,7 +119,7 @@ title_frame = tk.Frame(root)
 title_frame.grid(row=0, column=0, columnspan=2, sticky="n", pady=(10, 0))  # sticky="n" aligns to the top
 
 # Add a title label inside the title frame
-title_label = tk.Label(title_frame, text="COMHET - Operational optimizer", font=("Arial", 24, "bold"))
+title_label = tk.Label(title_frame, pady=15, text="COMHET - Operational optimizer", font=("Arial", 16, "bold"))
 title_label.pack()
 
 # Engineering Inputs section
@@ -124,19 +131,18 @@ thrust_label = ttk.Label(engineering_frame, text="Thruster:")
 thrust_label.grid(row=0, column=0, sticky="w", pady=5)
 thrust_options = ["PPSX00", "PPS1350", "PPS5000", "PPSX000_Hi", "PPS20k"]
 thrust_dropdown = ttk.Combobox(engineering_frame, values=thrust_options)
-thrust_dropdown.grid(row=0, column=1, pady=5)
+thrust_dropdown.grid(row=0, column=0, padx=90, pady=5, sticky="w")
 
 def modify_ranges(event):
-    b_ranges = {"": (100, 300), "PPSX00": (100, 300), "PPS1350": (100, 300), "PPS5000": (100, 300), "PPSX000_Hi": (100, 300), "PPS20k": (100, 300)}
-    q_ranges = {"": (1, 20), "PPSX00": (2, 10), "PPS1350": (1, 20), "PPS5000": (1, 20), "PPSX000_Hi": (1, 20), "PPS20k": (1, 20)}
+    b_ranges = {"": (100, 500), "PPSX00": (150, 300), "PPS1350": (100, 300), "PPS5000": (100, 300), "PPSX000_Hi": (100, 500), "PPS20k": (100, 300)}
+    q_ranges = {"": (1.5, 160), "PPSX00": (1.5, 5), "PPS1350": (1.5, 10), "PPS5000": (5, 40), "PPSX000_Hi": (5, 40), "PPS20k": (20, 160)}
 
     selected_thrust = thrust_dropdown.get()
-    b_range = b_ranges.get(selected_thrust, (50, 500))
-    q_range = q_ranges.get(selected_thrust, (1, 20))
+    b_range = b_ranges.get(selected_thrust, (100, 500))
+    q_range = q_ranges.get(selected_thrust, (0.5, 160))
 
     b_range_slider.forceValues([b_range[0], b_range[1]])
     q_range_slider.forceValues([q_range[0], q_range[1]])
-
 
 thrust_dropdown.bind("<<ComboboxSelected>>", modify_ranges)
 
@@ -145,7 +151,7 @@ propellant_label = ttk.Label(engineering_frame, text="Propellant:")
 propellant_label.grid(row=1, column=0, sticky="w", pady=5)
 propellant_options = ["xenon", "krypton"]
 propellant_dropdown = ttk.Combobox(engineering_frame, values=propellant_options)
-propellant_dropdown.grid(row=1, column=1, pady=5)
+propellant_dropdown.grid(row=1, column=0, padx=90, pady=5, sticky="w")
 
 def choose_profile():
     # Enable or disable the appropriate input fields
@@ -154,7 +160,7 @@ def choose_profile():
         upload_button.config(state="disabled")  # Disable upload button
     elif profile_var.get() == "Custom":
         profile_entry.config(state="disabled")  # Disable manual entry
-        upload_button.config(state="normal")  # Enable upload button
+        #upload_button.config(state="normal")  # Enable upload button
 
 def upload_csv():
     global file_path
@@ -227,14 +233,14 @@ profile_frame = ttk.Frame(engineering_frame, padding="10")
 profile_frame.grid(row=2, column=0)
 
 # Label for Profile Factor
-profile_label = ttk.Label(profile_frame, text="Profile Factor:")
+profile_label = ttk.Label(profile_frame, text="Magnetic field:")
 profile_label.grid(row=0, column=0, sticky="w")
 
 # Radio buttons to select profile type
 profile_var = tk.StringVar(value="Gaussian")  # Default selection
 
 gaussian_button = ttk.Radiobutton(
-    profile_frame, text="Gaussian Profile", variable=profile_var, value="Gaussian", command=choose_profile
+    profile_frame, text="Gaussian Profile with profile factor:", variable=profile_var, value="Gaussian", command=choose_profile
 )
 gaussian_button.grid(row=1, column=0, sticky="w", pady=5)
 
@@ -248,7 +254,9 @@ profile_entry = ttk.Entry(profile_frame, state="normal")  # Default enabled
 profile_entry.grid(row=1, column=1, pady=5)
 
 # Button to upload a CSV file for Custom Profile
-upload_button = ttk.Button(profile_frame, text="Upload CSV", state="disabled", command=upload_csv)
+#upload_button = ttk.Button(profile_frame, text="Upload CSV", , command=upload_csv)
+upload_button = customtkinter.CTkButton(profile_frame, text="Upload CSV", fg_color="grey", text_color="white", font=("Arial",12), corner_radius=50, command=upload_csv)
+
 upload_button.grid(row=2, column=1, pady=5)
 
 # Target section
@@ -278,12 +286,18 @@ value_2_label.grid(row=3, column=0, sticky="w", pady=5)
 value_2_entry = ttk.Entry(target_frame)
 value_2_entry.grid(row=3, column=1, pady=5)
 
+# Voltage section
+voltage_label = ttk.Label(target_frame, text="Voltage (V):")
+voltage_label.grid(row=4, column=0, sticky="w", pady=15)
+voltage_entry = ttk.Entry(target_frame)
+voltage_entry.grid(row=4, column=1, pady=15)
+
 # Ranges for B and Q section
 range_frame = tk.LabelFrame(root, text="Ranges for B_max and Q", padx=20, pady=20, font=("Arial", 14, "bold"))
 range_frame.grid(row=3, column=0, padx=20, pady=20, columnspan=2, sticky="n")
 
-b_ranges = {"":(50,500), "PPSX00": (60, 200), "PPS1350": (50, 500), "PPS5000": (50, 500), "PPSX000_Hi": (50, 500), "PPS20k": (50, 500)}
-q_ranges = {"":(1,20), "PPSX00": (2, 10), "PPS1350": (1, 20), "PPS5000": (1, 20), "PPSX000_Hi": (1, 20), "PPS20k": (1,20)}
+b_ranges = {"": (100, 500), "PPSX00": (100, 300), "PPS1350": (100, 300), "PPS5000": (100, 300), "PPSX000_Hi": (100, 500), "PPS20k": (100, 300)}
+q_ranges = {"": (0.5, 160), "PPSX00": (0.5, 5), "PPS1350": (1, 10), "PPS5000": (5, 40), "PPSX000_Hi": (5, 40), "PPS20k": (20, 160)}
 
 b_range = b_ranges[thrust_dropdown.get()]
 q_range = q_ranges[thrust_dropdown.get()]
@@ -293,7 +307,7 @@ b_range_label = ttk.Label(range_frame, text="B range (gauss):")
 b_range_label.grid(row=0, column=0, pady=0)
 b_range_min = tk.DoubleVar(value = b_range[0])  #left handle variable initialised to value 0.2
 b_range_max = tk.DoubleVar(value = b_range[1])  #right handle variable initialised to value 0.85
-b_range_slider = RangeSliderH(range_frame , [b_range_min, b_range_max] , min_val = b_range[0], max_val = b_range[1], padX = 17, bgColor="#f0f0f0")   #horizontal slider, [padX] value might be needed to be different depending on system, font and handle size. Usually [padX] = 12 serves,
+b_range_slider = RangeSliderH(range_frame , [b_range_min, b_range_max] , min_val = b_range[0], max_val = b_range[1], padX = 17, bgColor="#f0f0f0", font_family='Arial', font_size=12, Width=680)   #horizontal slider, [padX] value might be needed to be different depending on system, font and handle size. Usually [padX] = 12 serves,
 b_range_slider.grid(row=1, column=0, pady=0)
 
 # Q_min and Q_max scales
@@ -301,7 +315,7 @@ q_range_label = ttk.Label(range_frame, text="Q range (mg/s):")
 q_range_label.grid(row=2, column=0, pady=0)
 q_range_min = tk.DoubleVar(value = q_range[0])  #left handle variable initialised to value 0.2
 q_range_right = tk.DoubleVar(value = q_range[1])  #right handle variable initialised to value 0.85
-q_range_slider = RangeSliderH( range_frame , [q_range_min, q_range_right], min_val = q_range[0],max_val = q_range[1], padX = 17, bgColor="#f0f0f0")   #horizontal slider, [padX] value might be needed to be different depending on system, font and handle size. Usually [padX] = 12 serves,
+q_range_slider = RangeSliderH( range_frame , [q_range_min, q_range_right], min_val = q_range[0],max_val = q_range[1], padX = 17, bgColor="#f0f0f0", font_family='Arial', font_size=12, Width=680)   #horizontal slider, [padX] value might be needed to be different depending on system, font and handle size. Usually [padX] = 12 serves,
 q_range_slider.grid( row=3, column=0, pady=0)
 
 # Precision for B and Q text entries
@@ -329,9 +343,9 @@ output_q_value = ttk.Label(output_frame, text="", font=("Arial", 14))
 
 # Run button to initiate calculation
 style = ttk.Style()
-style.configure("Custom.TButton", foreground="white", background="blue")
-run_button = ttk.Button(root, text="Run", style="Custom.TButton", command=run_command)
-run_button.grid(row=0, column=2, columnspan=2, pady=20)
+style.configure("Custom.TButton", foreground="white", background="blue", font=("Arial", 12, "bold"))
+run_button = customtkinter.CTkButton(root, text="Run", fg_color="blue", text_color="white", font=("Arial",14, "bold"), corner_radius=50, command=run_command)
+run_button.grid(row=0, column=1, columnspan=2, pady=25, padx=200)
 
 # Start the GUI event loop
 root.mainloop()

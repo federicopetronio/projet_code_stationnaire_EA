@@ -1,7 +1,10 @@
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.interpolate import interp1d
 from scipy.constants import elementary_charge, electron_mass, Boltzmann, proton_mass
 import matplotlib.pyplot as plt
+import csv
+from Km_plot import Km_Kiz
 
 # 1D model of a Hall thruster in xenon and krypton
 
@@ -13,16 +16,6 @@ m_e = electron_mass
 k_B = Boltzmann
 T_g = 500 # noter la temperature du gaz
 
-# Engineering inputs
-B_max = 200e-4  # Bmax in tesla
-C_mag = 4  # Profile factor
-Q_mgs = 5  # Mass flow rate in mg/s
-
-##################### THRUSTER #####################
-# choose thruster and propellant
-thruster = 'PPS1350'
-propellant = 'xenon'
-
 # Model input is a normalized current
 I_bar = 1.34
 
@@ -31,6 +24,7 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     print("Calcul Manna")
     print("B_max: ", B_max)
     print("Q_mgs: ", Q_mgs)
+    print('Thrust: ', thruster)
     
     if thruster == 'PPSX00':
         L_ch = 0.024  # channel length in meters
@@ -56,22 +50,25 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     if propellant == 'xenon':
         MM = 131 * proton_mass
         v_g = np.sqrt(k_B * T_g / MM)
-        K_iz_0 = 1.8 * 1e-13
         E_iz = 12.127
-        kexc0 = 1.2921e-13
-        E_exc = 11.6
-        Km_star = 2.5e-13
-        delta_anom = 3.3e-3  # anomalous transport
+        Km_star = 2.37e-13
         K_iz_star = 5.45e-14
+        delta_anom = 3.5e-3  # anomalous transport
     elif propellant == 'krypton':
-        MM = 83.8 * 1.67e-27
+        MM = 83.8 * proton_mass
         v_g = np.sqrt(k_B * T_g / MM)
-        K_iz_0 = 1.7 * 1e-13
-        E_iz = 14  # approx ionization rate
-        kexc0 = 0.6e-13
-        E_exc = 12.75  # excitation rate
-        Km_star = 1.8e-13
+        E_iz = 14.00  # approx ionization rate
+        Km_star = 1.91e-13
+        K_iz_star = 4.62e-14
         delta_anom = 5e-4  # anomalous transport
+    elif propellant == 'argon':
+        MM = 39.95 * proton_mass
+        v_g = np.sqrt(k_B * T_g / MM)
+        E_iz = 15.76  # approx ionization rate
+        Km_star = 2.07e-13
+        K_iz_star = 3.57e-14
+        delta_anom = 5e-4  ###### TO FIND 
+        
 
     # Geometry of the Thruster
     R_out = (d_ave + Delta_r) / 2  # external radius in meters
@@ -84,15 +81,13 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     sigma_scl = 1 - 8.3*np.sqrt(m_e / MM) # sigma critical, see Eq. (13)
 
     # Similarity parameters
-    E_c = E_iz * f_epsilon # (34)
     v_star = np.sqrt(ee * E_iz / MM) # just above (21)
     alpha = K_iz_star * L_ch * Q_m / (MM * A_ch * v_g * v_star) #(23)
     beta = m_e * v_g * omega_max**2 * A_ch * L_ch / (v_star * Km_star * Q_m) #(24)
     gamma = delta_anom * MM * v_g * omega_max * A_ch / (Km_star * Q_m) #(25)
     lmbd = 2 * h_R * L_ch / Delta_r #(26)
-    f_m = 1 # see Table I
+    # f_m = 1 # see Table I
 
-    n_g0 = alpha * v_star / (K_iz_star * L_ch) # Nominal propellant gas density (55)
     I_d = I_bar * ee * Q_m / MM # denormalized current (27)
     Gamma_d = I_d / (ee * A_ch) # after (17) in the text
     Gamma_m = Q_m / (MM * A_ch) # after (15) in the text
@@ -102,14 +97,19 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     def F_Te(Temp, dist, Gb, Gammab):
         '''This function calculates the electron temperature Te_bar at a given distance z_bar along the channel'''
         '''temp = Te_bar , dist = z_bar, Gb = G_bar, Gammab = Gamma_bar'''
-        
-        K_iz = K_iz_0 * ((3/2 * Temp)**0.25) * np.exp(-4/(3 * Temp)) # see Eq. (30) paper BM
-        f_ce = np.exp(-C_mag * (dist - 1)**2) #(45)
+      
+        f_ce = magProfile(dist) #(45)
 
-        f_iz = K_iz/K_iz_star #(30)
+        if Temp > 50/E_iz:
+            Temp = round(Temp, 4) # round the value of Te_bar to 4 decimals
+
+        f_iz = K_iz(Temp * E_iz)/K_iz_star #(30)
         sigma_see = 0.207 * (Temp * E_iz)**.549
         sigma = np.minimum(sigma_scl, sigma_see) #(14)
         M_bar = MM / m_e
+        
+        # We use the interpolation to find the value of f_m depending on T_e
+        f_m = Km(Temp * E_iz) / Km_star
         
         #(32) the unknown is Te
         numerateur = beta * f_ce**2 * Gb**2 * (1 - Gammab)**2
@@ -119,7 +119,7 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
 
         return numerateur/denominateur - term1 - term2
 
-    def find_sign_change(f, a, b, steps=100):
+    def find_sign_change(f, a, b, steps=500):
         '''This function finds the interval [a, b] where the function f changes sign'''
         
         x_values = [a + j * (b - a) / steps for j in range(steps + 1)]
@@ -163,17 +163,45 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         z_bar_array.append(dist) # save the values of z_bar
         Te_bar_array.append(Te_bar) # save the values of Te_bar
         
-        K_iz = K_iz_0 * ((3/2 * Te_bar)**0.25) * np.exp(-4/(3 * Te_bar))
-        f_iz = K_iz/K_iz_star
-        #f_ce = np.exp(-C_mag * (dist - 1)**2) #(45)
-        f_ce = magProfile(dist)
+        f_m = Km(Te_bar * E_iz) / Km_star
+        f_iz = K_iz(Te_bar * E_iz)/K_iz_star
+        f_ce = magProfile(dist) #(45)
             
-        dy[0] = (alpha * f_iz * Gamma_bar**2 * (1 - I_bar * Gamma_bar))/(G_bar) 
-        #- (lmbd * Gamma_bar**2 * np.sqrt(Te_bar))/G_bar #(21) dGamma_bar/dz_bar
-        dy[1] = (beta * f_ce**2 * (1 - Gamma_bar))/(f_m * (1 - I_bar * Gamma_bar) + gamma * f_ce) 
-        #- (lmbd * Gamma_bar * np.sqrt(Te_bar)) #(22) dG_bar/dz_bar
+        dy[0] = (alpha * f_iz * Gamma_bar**2 * (1 - I_bar * Gamma_bar))/(G_bar) - (lmbd * Gamma_bar**2 * np.sqrt(Te_bar))/G_bar #(21) dGamma_bar/dz_bar
+        dy[1] = (beta * f_ce**2 * (1 - Gamma_bar))/(f_m * (1 - I_bar * Gamma_bar) + gamma * f_ce) - (lmbd * Gamma_bar * np.sqrt(Te_bar)) #(22) dG_bar/dz_bar
         
         return dy
+    
+    #################### INTERPOLATION ######################
+
+    ## Interpolation : Km and K_iz ##
+
+    # prepares the interpolation to find Km in the solver => to reduce the complexity of the code
+    #Km_Kiz(propellant)
+
+    Km_x = []
+    Km_y = []
+
+    with open('Km_Kiz.csv', 'r') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            Km_x.append(float(row[0]))
+            Km_y.append(float(row[1]))
+
+    Km = interp1d(Km_x, Km_y, fill_value='extrapolate')
+
+    K_iz_x = []
+    K_iz_y = []
+
+    with open('Km_Kiz.csv', 'r') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            K_iz_x.append(float(row[0]))
+            K_iz_y.append(float(row[2]))
+                        
+    K_iz = interp1d(K_iz_x, K_iz_y, fill_value='extrapolate')
 
     #################### INTEGRATION ######################
 
@@ -203,10 +231,8 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     print("Te recalculated")
     Te_end = Te_bar_end * E_iz
 
-    K_iz = K_iz_0 * ((3 * Te_end / (2 * E_iz))**0.25) * np.exp(-4 * E_iz / (3 * Te_end))
-
     f_ce = magProfile(z_bar) # (45) magnetic field profile
-
+        
     BB = B_max * f_ce # (29) magnetic field
     omega_ce = ee * BB / m_e # electron cyclotron frequency
 
@@ -234,13 +260,14 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
 
     def P_d(Gammab, Gb):
         '''This function calculates the normalized discharge voltage'''
+        f_m = Km(Te_end) / Km_star
         Phi_d_bar = np.trapz((beta * f_ce**2 * Gb*(1 - Gammab))/(Gammab**2 * (f_m * (1 - I_bar * Gammab) + gamma * f_ce)), z_bar) # (36) normalized discharge voltage
         P_d = Phi_d_bar * E_iz * I_d # (35under) (41) power
         return P_d
 
     def S_iz(Gammab, Gb):
         '''This function calculates the ionization source'''
-        S_iz = n_i(Gammab, Gb) * n_g(Gammab) * K_iz
+        S_iz = n_i(Gammab, Gb) * n_g(Gammab) * K_iz(Te_end)
         return S_iz
 
     # Engineering outputs
@@ -291,6 +318,15 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
     thrust_to_power_mN_kW = thrust_to_power_ratio(Gamma_bar, G_bar) # thrust to power ratio
     total_efficiency = total_efficiency(Gamma_bar, G_bar) # total efficiency
     elec_efficency = power_efficiency(Gamma_bar, G_bar) # power efficiency
+    # Integrate E to get the voltage
+
+    def voltage(Gamma_bar, G_bar):
+        '''This function calculates the voltage by integrating the electric field'''
+        E_field = Ez(Gamma_bar, G_bar)
+        voltage = np.trapz(E_field, z_bar*L_ch)
+        return voltage
+
+    voltage = voltage(Gamma_bar, G_bar)  # discharge voltage
 
     if plotting:
 
@@ -302,16 +338,15 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         plt.xlabel(r'$\overline{z}$', fontsize=14)
         plt.ylabel('$T_e$ (V)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.title('Electron temperature')
+        plt.title('Electron temperature', fontsize=14)
 
-    
         plt.subplot(3, 2, 2)
         plt.plot(z_bar, u_i(Gamma_bar, G_bar), linewidth=1, color = "blue")
         plt.xlim([0, 1])
         plt.xlabel(r'$\overline{z}$', fontsize=14)
         plt.ylabel('$u_i$ (m/s)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.title('Ion velocity')
+        plt.title('Ion velocity', fontsize=14)
        
         
         plt.subplot(3, 2, 3)
@@ -320,8 +355,8 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         plt.xlabel(r'$\overline{z}$', fontsize=14)
         plt.ylabel('$B$ (Gauss)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.title('Magnetic field')
-
+        plt.title('Magnetic field', fontsize=14)
+        
         plt.subplot(3, 2, 4)
         plt.plot(z_bar, vng, label='Neutrals', color = "green")
         plt.plot(z_bar, vni, label='Ions', color = "red")
@@ -329,7 +364,7 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         plt.xlabel(r'$\overline{z}$', fontsize=14)
         plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
         plt.legend(fontsize=14)
-        plt.title('Mass fluxes')
+        plt.title('Mass fluxes', fontsize=14)
         plt.gca().tick_params(labelsize=14)
        
         ax1 = plt.subplot(3, 2, 5)
@@ -349,12 +384,11 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         ax2.tick_params(axis='y', labelcolor=color_g)
         
         # Titre commun
-        ax1.set_title('Ion and Neutral Densities', fontsize=16)
+        ax1.set_title('Ion and Neutral Densities', fontsize=14)
         
         ax1.legend(handles=[line1], loc='upper left', fontsize=12)  # Légende pour ax1
         ax2.legend(handles=[line2], loc='upper right', fontsize=12)  # Légende pour ax2
-        
-
+                
         ax1 = plt.subplot(3, 2, 6)
         ax2 = ax1.twinx()
     
@@ -370,20 +404,19 @@ def test_run(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=Fal
         ax2.tick_params(axis='y', labelcolor="red")
         
         # common title
-        ax1.set_title('Electric field and ionization source', fontsize=16)
+        ax1.set_title('Electric field and ionization source', fontsize=14)
         
         ax1.legend(handles=[line1], loc='upper left', fontsize=12)  
         ax2.legend(handles=[line2], loc='upper right', fontsize=12)
         
-   
+        plt.suptitle("plots for B_max = " + str(B_max) + " G and Q = " + str(Q_mgs) + " mgs", fontsize=16)
+        
         # Adjust layout to avoid overlapping
         plt.tight_layout()
 
         # Save the entire figure
-        plt.savefig('profiles/all_plots.pdf')
-
+        plt.savefig('all_plots.pdf')
         # Show the figure
-        plt.show()
 
-    return ([I_sp, thrust_mN, thrust_power, mass_utilization, thrust_to_power_mN_kW, total_efficiency, elec_efficency])
+    return ([I_sp, thrust_mN, thrust_power, mass_utilization, thrust_to_power_mN_kW, total_efficiency, elec_efficency, voltage])
 

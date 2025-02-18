@@ -1,13 +1,12 @@
-import physics
-from physics import test_run
+from Calculations import test_run
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 
 
-def run_two_targets(B_max_values, Q_mgs_values, beta_mag, I_bar, thruster, propellant, var1, val1, var2, val2):
+def run_two_targets(B_max_values, Q_mgs_values, magProfile, I_bar, thruster, propellant, var1, val1, var2, val2):
     
-    var_index = {"ISP": 0, "Thrust": 1}
+    var_index = {"ISP": 0, "Thrust": 1, "Thrust_power": 2, "Mass_utilization": 3, "Thrust_to_power_mN_kW": 4, "Total_efficiency": 5, "Elec_efficiency": 6}
 
     n = len(B_max_values)
     m = len(Q_mgs_values)
@@ -18,7 +17,8 @@ def run_two_targets(B_max_values, Q_mgs_values, beta_mag, I_bar, thruster, prope
     for i in range(n):
         for j in range(m):
             # test_run est supposé être une fonction calculant [ISP, Thrust]
-            results[i][j] = (test_run(B_max_values[i]/10000, beta_mag, Q_mgs_values[j], I_bar, thruster, propellant)) # /10000 pour convertir en tesla
+            print(i, j)
+            results[i][j] = (test_run(B_max_values[i]/10000, magProfile, Q_mgs_values[j], I_bar, thruster, propellant)) # /10000 pour convertir en tesla
 
     print(results)
 

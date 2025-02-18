@@ -25,8 +25,9 @@ Q_mgs = 5  # Mass flow rate in mg/s
 # Model input is a normalized current
 I_bar = 1.34
 
-def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False):
+def test_run_(B_max, magProfile, Q_mgs, I_bar, thruster, propellant, plotting=False):
 
+    print("Calcul Ancienne version")
     if thruster == 'PPSX00':
         L_ch = 0.024  # channel length in meters
         d_ave = 0.056  # Thruster average diameter
@@ -100,7 +101,7 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
 
         chi, g = y
 
-        f = np.exp(-beta_mag * (x - 1)**2)
+        f = magProfile(x)
         beta_bar = beta * f
         alpha_bar = alpha * f**2
 
@@ -129,7 +130,7 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
     u_i = (g / chi) * v_star
     n_i = chi * Gamma_d / u_i
     n_g = (Gamma_m - chi * Gamma_d) / v_g
-    f = np.exp(-beta_mag * (x - 1)**2)
+    f = magProfile(x)
     beta_bar = beta * f
     intB2 = np.trapz(f**2, x)
     BB = B_max * f
@@ -177,7 +178,11 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
     x_Temax = x[i_Temax]
 
     if plotting:
-        plt.figure(1)
+
+        plt.clf()
+
+        # First plot: n_i and n_g
+        plt.subplot(3, 2, 1)
         plt.plot(x, n_i, 'k', linewidth=1)
         plt.twinx()
         plt.plot(x, n_g, 'r', linewidth=1)
@@ -186,25 +191,28 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
         plt.ylabel('$n_i$ m$^{-3}$', fontsize=14)
         plt.ylabel('$n_g$ m$^{-3}$', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/densities.pdf')
+        plt.title("Densities")
 
-        plt.figure(2)
+        # Second plot: T_e
+        plt.subplot(3, 2, 2)
         plt.plot(x, T_e, 'b', linewidth=1)
         plt.xlim([0, 1])
         plt.ylim([0, 25])
         plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
         plt.ylabel('$T_e$ (V)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/Te.pdf')
+        plt.title("Electron temperature")
 
-        plt.figure(3)
+        # Third plot: u_i
+        plt.subplot(3, 2, 3)
         plt.plot(x, u_i, 'b', linewidth=1)
         plt.xlim([0, 1])
         plt.ylabel('$u_i$ (m/s)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/ion-velocity.pdf')
+        plt.title("Ion velocity")
 
-        plt.figure(4)
+        # Fourth plot: E_x and S_iz
+        plt.subplot(3, 2, 4)
         plt.plot(x, E_x, 'k', linewidth=1)
         plt.twinx()
         plt.plot(x, S_iz, 'r', linewidth=1)
@@ -213,17 +221,19 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
         plt.ylabel('$E_x$ (V/m)', fontsize=14)
         plt.ylabel('$S_{\\rm iz}$ (m$^3$/s$^{-1}$)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/ExSiz.pdf')
+        plt.title("Ex and Siz")
 
-        plt.figure(6)
+        # Fifth plot: B field (scaled)
+        plt.subplot(3, 2, 5)
         plt.plot(x, BB * 1e4, 'b', linewidth=1)
         plt.xlim([0, 1])
         plt.xlabel('$x/L_{\\rm ch}$', fontsize=14)
         plt.ylabel('$B$ (Gauss)', fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/Bfield.pdf')
+        plt.title("Magnetic field profile")
 
-        plt.figure(8)
+        # Sixth plot: Fluxes (Neutrals and Ions)
+        plt.subplot(3, 2, 6)
         plt.plot(x, n_g * v_g, 'b', label='Neutrals')
         plt.plot(x, n_i * u_i, 'r', label='Ions')
         plt.xlim([0, 1])
@@ -231,6 +241,15 @@ def test_run(B_max, beta_mag, Q_mgs, I_bar, thruster, propellant, plotting=False
         plt.ylabel('$\\Gamma$ (m$^{-2}$s$^{-1}$)', fontsize=14)
         plt.legend(fontsize=14)
         plt.gca().tick_params(labelsize=14)
-        plt.savefig('profiles/Fluxes.pdf')
+        plt.title("Fluxes")
 
-    return ([I_sp, thrust_mN])
+        # Adjust layout to avoid overlapping
+        plt.tight_layout()
+
+        # Save the entire figure
+        plt.savefig('profiles/all_plots.pdf')
+
+        # Show the figure
+        plt.show()
+
+    return ([I_sp, thrust_mN, thrust_power, mass_utilization, thrust_to_power_mN_kW, total_efficiency, elec_efficency])
